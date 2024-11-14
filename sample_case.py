@@ -1,14 +1,19 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from gurobipy import *
 
 # Scenario Parameters
-np.random.seed(42);
+np.random.seed(45);
 MAP_SIZE = 100;
 GRID_STEPS = 10;
 N = 12;
 M = 3;
 MAX_DEMAND = 10;
+
+MAX_VEHICLES = 4;
+VEHICLE_CAPS = [6, 15, 40];
+VEHICLE_SPEEDS = [170, 80, 40];
 
 # Generate 100 x 100 km map
 side_array = np.arange(MAP_SIZE);
@@ -24,10 +29,38 @@ distance_matrix = np.zeros((N, N));
 for i, j in [(i, j) for i in range(N) for j in range(N)]:
     distance_matrix[i, j] = np.sqrt((nodes[i, 0] - nodes[j, 0])**2 + (nodes[i, 1] - nodes[j, 1])**2);
 
+# Generate delivery fleet
+fleet_numbers = np.random.randint(0, MAX_VEHICLES, 3);
+fleet_cap = sum(fleet_numbers * VEHICLE_CAPS);
+
 
 # Generate demand list
-demand_list = np.random.randint(1, MAX_DEMAND, N-1);
+demand_list = [0] * (N-1);
+rem_fleet_cap = fleet_cap;
+max_demand = rem_fleet_cap // (N-1) * 2;
 
+while rem_fleet_cap > 0:
+    for i in range(N-1):
+        demand = min(np.random.randint(1, max_demand), rem_fleet_cap);
+        demand_list[i] += demand;
+        rem_fleet_cap -= demand;
+        if rem_fleet_cap == 0: break;
+demand_list = [int(x) for x in demand_list];
+
+# Report
+print();
+print('SCENARIO OVERVIEW');
+print();
+print(f'Fleet Report');
+print(f'Fast fixed-wings (C {VEHICLE_CAPS[0]}, V {VEHICLE_SPEEDS[0]}): {fleet_numbers[0]}');
+print(f'Quadrotors (C {VEHICLE_CAPS[1]}, V {VEHICLE_SPEEDS[1]}): {fleet_numbers[1]}');
+print(f'Cargo Blimps: (C {VEHICLE_CAPS[2]}, V {VEHICLE_SPEEDS[2]}) {fleet_numbers[2]}');
+print(f'Total capacity: {fleet_cap}');
+print();
+print(f'A maximum demand of {max_demand} is used in distributing the demands.')
+print(f'{N-1} customers will be served with following demands:');
+print(f'{demand_list} ({sum(demand_list)} in total).')
+print();
 
 # Visualise
 plt.scatter(depot.T[0], depot.T[1], s=30.0, c='b');
