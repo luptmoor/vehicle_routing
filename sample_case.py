@@ -185,5 +185,8 @@ for i in range(M):
 print()
 print()
 print(solution);
+print()
+print('Total visit matrix');
+print(sum(solution[i, :, :] for i in range(M)));
 
 plt.show(); # only plots scenario, not solution
