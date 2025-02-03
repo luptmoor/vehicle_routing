@@ -96,6 +96,8 @@ print('Distance Matrix [km]');
 print(distance_matrix);
 print()
 print()
+print('Traveltime Matrix [h]:');
+print(traveltime_matrix);
 
 
 # Visualise scenario without solution
@@ -131,7 +133,8 @@ m.modelSense = GRB.MINIMIZE;
 x = m.addVars(range(M), range(N+1), range(N+1), vtype = GRB.BINARY, name='x_ijk');
 
 # Total travel time [h] (i.e. hours that pilots have to be paid for, NOT duration of delivery)
-m.setObjective(sum(x[i, j, k] * traveltime_matrix[i, j, k] for i in range(M) for j in range(N) for k in range(N))); 
+m.setObjective(sum(x[i, j, k] * traveltime_matrix[i, j, k] for i in range(M) for j in range(N) for k in range(N+1))); 
+
 
 
 # Constraints:  Vehicle i goes from node j to k
@@ -160,49 +163,16 @@ for i in range(M):
 #                       outgoing arcs from j                    -   incoming arcs to j                == 0
 
 # 5. Subtour elimination
-u = m.addVars(range(M), range(N), vtype=GRB.CONTINUOUS, lb=0, ub=N-1, name="u")
+u = m.addVars(range(M), range(N), vtype=GRB.CONTINUOUS, lb=0, ub=N-1, name="u");
 for i in range(M):
-    for j in range(1, N - 1):
-        m.addConstr(u[i, j] - u[i, j + 1] + (N - 1) * x[i, j, j + 1] <= N - 2)
-
-
-############### OLDER
-
-
-# 4. From every customer, the DepotEnd can only be visited from 1 vehicle
-# for j in range(N-1):
-#     m.addConstr(sum(x[i, j, N+1 -1] for i in range(M)) <= 1);
-
-# 5. Vehicles need to move
-# for i in range(M):
-#     m.addConstr(sum(x[i, t, t] for t in range(N-1)) == 0);
+    for j in range(N-1):
+        m.addConstr(u[i, j] - u[i, j+1] + (N-1) * x[i, j, j+1] <= N-2);
 
 
 
-
-
-# for j in range(N-1):
-#     m.addConstr(sum(x[i, j, k] for i in range(M) for k in range(N-1)) == 1);
-    
-
-# 2. Vehicle i's capacity is not exceeded.
-# for i in range(M):
-#     m.addConstr(sum(x[i, j, k] * demand_list[k] for j in range(N) for k in range(N-1)) <= capacity_list[i]);
-
-
-
-
-
-
-# # 5. Vehicles i move to next customer and do not come back
-# for i in range(M):
-#     for k in range(N-1):
-#         m.addConstr(sum(x[i, j, k] for j in range(N) if i!=j) - sum(x[i, j, k] for j in range(N)) == 0);
-#         m.addConstr(x[i, k, k] == 0);    # No entries on diagonal: vehicles do not stay at a node
-
-# m.addConstr(sum(x[i, N   -1, k] for i in range(M) for k in range(N-1)) == 1);
-# m.addConstr(sum(x[i, j, N+1   -1] for i in range(M) for j in range(N)) == 1);
-
+# 6. Vehicle i's capacity is not exceeded.
+for i in range(M):
+    m.addConstr(sum(x[i, j, k] * demand_list[k] for j in range(N) for k in range(N-1)) <= capacity_list[i]);
 
 
 
@@ -216,6 +186,7 @@ m.write('vehicle_routing.lp') # Only writes simplex problem formulation, not sol
 
 # Convert solution to np.array for output print
 solution = np.zeros((M, N+1, N+1));
+
 for i in range(M):
     for j in range(N+1):
         for k in range(N+1):
@@ -228,6 +199,5 @@ print()
 print('Total visit matrix');
 print(sum(solution[i, :, :] for i in range(M)));
 print()
-print('range(N-1) = range(3) = ', [x for x in range(3)]);
-
+print('Total time needed:', round(m.ObjVal, 2), 'person hours.')
 #plt.show(); # only plots scenario, not solution
