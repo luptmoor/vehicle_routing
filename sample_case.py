@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from gurobipy import *
 
 # Scenario Parameters
-np.random.seed(44);
+np.random.seed(46);
 MAP_SIZE = 100; # km (in a square)
 GRID_STEPS = 10;
 
@@ -136,34 +136,73 @@ m.setObjective(sum(x[i, j, k] * traveltime_matrix[i, j, k] for i in range(M) for
 
 # Constraints:  Vehicle i goes from node j to k
 
-# 1. Customers k are only visited once by a vehicle.
+# 1. Every customer k is visited once by a vehicle and drones also leave from every customer
 for k in range(N-1):
     m.addConstr(sum(x[i, j, k] for i in range(M) for j in range(N)) == 1);
 
-# 2. Vehicle i's capacity is not exceeded.
-for i in range(M):
-    m.addConstr(sum(x[i, j, k] * demand_list[k] for j in range(N) for k in range(N-1)) <= capacity_list[i]);
 
-
-# 3. Vehicles i leave at depotStart N and do not come back
+# 2. Vehicles i leave at depotStart N and do not come back
 for i in range(M):
     m.addConstr(sum(x[i, N  -1, k] for k in range(N-1)) == 1); # yes: from N to k until N-1 (customers)
     m.addConstr(sum(x[i, j, N  -1] for j in range(N)) == 0); # no: from j to N
 
-# 4. Vehicles i do not leave at depotEnd N+1 but always come back
+
+# 3. Vehicles i do not leave at depotEnd N+1 but always come back
 for i in range(M):
     m.addConstr(sum(x[i, N+1  -1, k] for k in range(N+1)) == 0);
-    m.addConstr(sum(x[i, j, N+1  -1] for j in range(N)) == 1);
+    m.addConstr(sum(x[i, j, N+1  -1] for j in range(N-1)) == 1);
     
 
-# 5. Vehicles i move to next customer and do not come back
+# 4. If a vehicle i goes to a node, it also needs to leave from that node
 for i in range(M):
-    for k in range(N-1):
-        m.addConstr(sum(x[i, j, k] for j in range(N) if i!=j) - sum(x[i, j, k] for j in range(N)) == 0);
-        m.addConstr(x[i, k, k] == 0);    # No entries on diagonal: vehicles do not stay at a node
+    for j in range(N-1):
+        m.addConstr(sum(x[i, j, k] for k in list(range(N-1)) + [N] if k!=j) - sum(x[i, k, j] for k in range(N)) == 0);
+#                       outgoing arcs from j                    -   incoming arcs to j                == 0
+
+# 5. Subtour elimination
+u = m.addVars(range(M), range(N), vtype=GRB.CONTINUOUS, lb=0, ub=N-1, name="u")
+for i in range(M):
+    for j in range(1, N - 1):
+        m.addConstr(u[i, j] - u[i, j + 1] + (N - 1) * x[i, j, j + 1] <= N - 2)
 
 
-# 6. Subtour elimination
+############### OLDER
+
+
+# 4. From every customer, the DepotEnd can only be visited from 1 vehicle
+# for j in range(N-1):
+#     m.addConstr(sum(x[i, j, N+1 -1] for i in range(M)) <= 1);
+
+# 5. Vehicles need to move
+# for i in range(M):
+#     m.addConstr(sum(x[i, t, t] for t in range(N-1)) == 0);
+
+
+
+
+
+# for j in range(N-1):
+#     m.addConstr(sum(x[i, j, k] for i in range(M) for k in range(N-1)) == 1);
+    
+
+# 2. Vehicle i's capacity is not exceeded.
+# for i in range(M):
+#     m.addConstr(sum(x[i, j, k] * demand_list[k] for j in range(N) for k in range(N-1)) <= capacity_list[i]);
+
+
+
+
+
+
+# # 5. Vehicles i move to next customer and do not come back
+# for i in range(M):
+#     for k in range(N-1):
+#         m.addConstr(sum(x[i, j, k] for j in range(N) if i!=j) - sum(x[i, j, k] for j in range(N)) == 0);
+#         m.addConstr(x[i, k, k] == 0);    # No entries on diagonal: vehicles do not stay at a node
+
+# m.addConstr(sum(x[i, N   -1, k] for i in range(M) for k in range(N-1)) == 1);
+# m.addConstr(sum(x[i, j, N+1   -1] for i in range(M) for j in range(N)) == 1);
+
 
 
 
@@ -188,5 +227,7 @@ print(solution);
 print()
 print('Total visit matrix');
 print(sum(solution[i, :, :] for i in range(M)));
+print()
+print('range(N-1) = range(3) = ', [x for x in range(3)]);
 
-plt.show(); # only plots scenario, not solution
+#plt.show(); # only plots scenario, not solution
