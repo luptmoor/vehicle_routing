@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from gurobipy import *
 
 # Scenario Parameters
-np.random.seed(46);
+np.random.seed(42);
 MAP_SIZE = 100; # km (in a square)
 GRID_STEPS = 10;
 
@@ -12,7 +12,7 @@ GRID_STEPS = 10;
 VEHICLE_CAPACITIES = [6, 15, 40]; # kg
 VEHICLE_VELOCITIES = [170, 80, 40]; # km/h
 
-N = 4; # number of nodes including depot
+N = 7; # number of nodes including depot
 M = 2; # number of vehicles
 
 # Generate 100 x 100 km map
@@ -28,7 +28,7 @@ customers, depot = nodes[:N-1, :], nodes[N-1, :];
 nodes[N, :] = depot; # duplicate depot node to mimic problem formulation from paper
 
 # Generate delivery fleet
-fleet_list = np.random.randint(0, 2, M);  # randomly decide vehicle type (0-2) for M vehicles
+fleet_list = np.random.randint(0, 3, M);  # randomly decide vehicle type (0-2) for M vehicles
 
 n_0, n_1, n_2 = 0, 0, 0; # Counters for vehicle types
 for i in fleet_list:
@@ -45,10 +45,10 @@ fleet_capacity = sum(capacity_list); # Total capacity of fleet
 # Generate demand list (N+1) (depot counted twice: as start and end)
 demand_list = [0] * (N+1);
 rem_fleet_capacity = fleet_capacity;
-max_demand = rem_fleet_capacity // (N-1) * 3 // 2;
+max_demand = rem_fleet_capacity // (N-1) * 2;
 
 for i in range(N-1):
-    demand = min(np.random.randint(1, max_demand), rem_fleet_capacity);
+    demand = min(np.random.randint(1, max_demand), rem_fleet_capacity-M-1);
     demand_list[i] += demand;
     rem_fleet_capacity -= demand;
     if rem_fleet_capacity == 0: break;
@@ -90,14 +90,14 @@ print(f'Total capacity [kg]: {fleet_capacity}');
 print();
 print(f'A maximum demand of {max_demand}kg is used in distributing the demands.')
 print(f'{N-1} customers will be served with following demands [kg]:');
-print(f'{demand_list} ({sum(demand_list)}kg in total).')
+print(f'{demand_list[:-2]} ({sum(demand_list)}kg in total).')
 print();
-print('Distance Matrix [km]');
-print(distance_matrix);
-print()
-print()
-print('Traveltime Matrix [h]:');
-print(traveltime_matrix);
+# print('Distance Matrix [km]');
+# print(distance_matrix);
+# print()
+# print()
+# print('Traveltime Matrix [h]:');
+# print(traveltime_matrix);
 
 
 # Visualise scenario without solution
