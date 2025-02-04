@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from gurobipy import *
 
 # Scenario Parameters
-np.random.seed(45);
+np.random.seed(42);
 MAP_SIZE = 100; # km (in a square)
 GRID_STEPS = 10;
 
@@ -12,8 +12,8 @@ GRID_STEPS = 10;
 VEHICLE_CAPACITIES = [6, 15, 40]; # kg
 VEHICLE_VELOCITIES = [170, 80, 40]; # km/h
 
-N = 7; # number of nodes including depot
-M = 2; # number of vehicles
+N = 9; # number of nodes including depot
+M = 4; # number of vehicles
 
 # Generate 100 x 100 km map
 side_array = np.arange(MAP_SIZE);
@@ -113,8 +113,9 @@ plt.grid();
 plt.xlabel('X Position [km]');
 plt.ylabel('Y Position [km]');
 for i in range(N-1):
-    plt.annotate(demand_list[i], [x + 1 for x in customers[i, :]]);
+    plt.annotate(str(int(demand_list[i])) + ' kg', [x + 1 for x in customers[i, :]]);
 plt.annotate('Depot', [x + 1 for x in depot]);
+plt.legend(['Depot', 'Customers']);
 
 
 
@@ -205,4 +206,4 @@ print('Total visit matrix');
 print(sum(solution[i, :, :] for i in range(M)));
 print()
 print('Total time needed:', round(m.ObjVal, 2), 'person hours.')
-#plt.show(); # only plots scenario, not solution
+plt.show(); # only plots scenario, not solution
