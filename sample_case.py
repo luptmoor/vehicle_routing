@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from gurobipy import *
 
 # Scenario Parameters
-np.random.seed(42);
+np.random.seed(45);
 MAP_SIZE = 100; # km (in a square)
 GRID_STEPS = 10;
 
@@ -45,7 +45,7 @@ fleet_capacity = sum(capacity_list); # Total capacity of fleet
 # Generate demand list (N+1) (depot counted twice: as start and end)
 demand_list = [0] * (N+1);
 rem_fleet_capacity = fleet_capacity;
-max_demand = rem_fleet_capacity // (N-1) * 2;
+max_demand = rem_fleet_capacity // (N-1) * 7 // 4;
 
 for i in range(N-1):
     demand = min(np.random.randint(1, max_demand), rem_fleet_capacity-M-1);
@@ -161,12 +161,17 @@ for i in range(M):
     for j in range(N-1):
         m.addConstr(sum(x[i, j, k] for k in list(range(N-1)) + [N] if k!=j) - sum(x[i, k, j] for k in range(N)) == 0);
 #                       outgoing arcs from j                    -   incoming arcs to j                == 0
+        #for k in range(N-1):
+           # m.addConstr(x[i, j, k] + x[i, k, j] < 2);
+
 
 # 5. Subtour elimination
-u = m.addVars(range(M), range(N), vtype=GRB.CONTINUOUS, lb=0, ub=N-1, name="u");
+u = m.addVars(range(M), range(N-1), vtype=GRB.CONTINUOUS, lb=0, ub=N-1, name="u");
 for i in range(M):
     for j in range(N-1):
-        m.addConstr(u[i, j] - u[i, j+1] + (N-1) * x[i, j, j+1] <= N-2);
+        for k in range(N-1):
+            if j != k:
+                m.addConstr(u[i, j] - u[i, k] + (N - 1) * x[i, j, k] <= N-2);
 
 
 
