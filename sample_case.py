@@ -2,6 +2,12 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from gurobipy import *
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+from verification_functions import verify_all_constraints
+
 
 # Scenario Parameters
 np.random.seed(42);
@@ -12,8 +18,8 @@ GRID_STEPS = 10;
 VEHICLE_CAPACITIES = [6, 15, 40]; # kg
 VEHICLE_VELOCITIES = [170, 80, 40]; # km/h
 
-N = 9; # number of nodes including depot
-M = 4; # number of vehicles
+N = 5; # number of nodes including depot
+M = 2; # number of vehicles
 
 # Generate 100 x 100 km map
 side_array = np.arange(MAP_SIZE);
@@ -206,4 +212,9 @@ print('Total visit matrix');
 print(sum(solution[i, :, :] for i in range(M)));
 print()
 print('Total time needed:', round(m.ObjVal, 2), 'person hours.')
-plt.show(); # only plots scenario, not solution
+#plt.show(); # only plots scenario, not solution
+
+
+
+
+verify_all_constraints(solution, demand_list, capacity_list)
