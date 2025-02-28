@@ -12,9 +12,6 @@ import matplotlib.pyplot as plt
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from sample_case import nodes, customers, depot, solution, MAP_SIZE, GRID_STEPS, M, N, demand_list, capacity_list
-
 
 
 def plot_solution():
@@ -30,7 +27,7 @@ def plot_solution():
 
     # Plot customers with demand labels
     for i, (x, y) in enumerate(customers):
-        plt.scatter(x, y, s=50, c='blue', marker='o')  
+        plt.scatter(x, y, s=50, c='blue', marker='o')
         plt.annotate(f"C{i+1} [{demand_list[i]}kg]", (x + 1, y + 1), fontsize=10, color='black')
 
     # Track total delivered capacities for each vehicle
@@ -93,4 +90,3 @@ def plot_solution():
 
 if __name__ == "__main__":
     plot_solution()
-    print(depot)

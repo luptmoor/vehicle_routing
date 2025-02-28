@@ -1,0 +1,153 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+import seaborn as sns
+
+from sample_case_3 import run
+
+MAP_SIZE = 100
+GRID_STEPS = 10
+
+# Define depot locations to test
+depot_locations = [
+    (0,0),
+    (25, 25),
+    (50, 50),
+    (75, 75),
+    (100, 100),
+]
+
+depot_locations = [(50,50)]
+
+# Define number of seeds to run for variability analysis
+num_seeds = 1
+
+# Define number of customers N and vehicles M
+M = 3
+# N = 9
+N = 13
+
+# Store results in a DataFrame
+results = []
+
+# Store results in a dictionary for plotting the routes without rerunning the model
+all_results = {}
+
+fleet_compositions = {
+        'Fixed-Wing (Type 1)': [0] * (M),
+        'Quadcopter (Type 2)': [1] * (M),
+        'Cargo Blimp (Type 3)': [2] * (M)
+    }
+for depot_index, depot in enumerate(depot_locations):
+    for seed in range(num_seeds):
+        result = run(N=N, M=M, random_fleet= False, fleet_composition= fleet_compositions['Quadcopter (Type 2)'] , seed=seed)
+        all_results[(depot_index, seed)] = result
+
+
+        if result and result["objective_value"] is not None:
+            feasibility = "Yes"
+            obj_value = result["objective_value"]
+            total_dist = result["total_distance"]
+            runtime = result["runtime"]
+        else:
+            feasibility = "No"
+            obj_value = np.nan
+            total_dist = np.nan
+            runtime = np.nan
+
+        results.append({
+            "Depot Location Index": depot_index,
+            "Fleet Size": M,
+            "Fleet Composition": str(tuple(result["fleet"])),
+            "Seed": seed,
+            "Objective Value": obj_value,
+            "Total Distance": total_dist,
+            "Runtime": runtime,
+            "Feasible": feasibility
+        })
+
+
+
+# Plot function for vehicle routes
+def plot_solution(result, depot_index, seed):
+    plt.figure(figsize=(10, 8))
+
+    depot = np.array(result["depot_location"])
+    customers = np.array(result["customer_locations"])
+    solution_x = result["solution_x"]
+    fleet = result["fleet"]
+    demand_list = result["demand_list"]
+
+    vehicle_types = {0: "Fixed Wing", 1: "Quadcopter", 2: "Cargo Blimp"}
+
+    # Generate colors dynamically for vehicles
+    cmap = plt.colormaps.get_cmap('tab10')
+    vehicle_colors = [cmap(i % M) for i in range(M)]
+
+    # Plot depot
+    plt.scatter(depot[0], depot[1], s=100, c='red', marker='s', label="Depot")
+    plt.annotate('Depot', (depot[0] + 1, depot[1] + 1), fontsize=10, color='red', fontweight='bold')
+
+    # Plot customers
+    for i, (x, y) in enumerate(customers):
+        plt.scatter(x, y, s=50, c='blue', marker='o')
+        plt.annotate(f"C{i + 1} [{demand_list[i]}kg]", (x + 1, y + 1), fontsize=10, color='black')
+
+    # Track total delivered capacities for each vehicle
+    delivered_capacities = {i: 0 for i in range(M)}
+
+    # Plot vehicle paths
+    for (i, j, k) in solution_x:
+        start_node = customers[j] if j < len(customers) else depot
+        end_node = customers[k] if k < len(customers) else depot
+
+        # Add delivered demand if going to a customer (not depot)
+        if k < len(customers):
+            delivered_capacities[i] += result["demand_list"][k]
+
+        dx = end_node[0] - start_node[0]
+        dy = end_node[1] - start_node[1]
+        plt.arrow(
+            start_node[0], start_node[1], dx, dy,
+            color=vehicle_colors[i % M],
+            head_width=1.5, head_length=2.5,
+            length_includes_head=True
+        )
+
+    # Add legend entries for each vehicle with its type and delivered capacity
+    for i in range(M):
+        vehicle_type = vehicle_types[fleet[i]]
+        plt.scatter([], [], color=vehicle_colors[i], label=f"Vehicle {i+1} ({vehicle_type}): {delivered_capacities[i]}/{result['capacity_list'][i]} kg")
+
+    plt.grid()
+    plt.xlabel('X Position [km]')
+    plt.ylabel('Y Position [km]')
+    plt.xlim(-2, MAP_SIZE+2)
+    plt.ylim(-2, MAP_SIZE+2)
+    plt.title(f'Optimized Routes for Depot {depot_index}, Seed {seed}')
+    plt.legend()
+
+    # plt.savefig(f"results/solution_plot_depot{depot_index}_seed{seed}.png", dpi = 300)
+    plt.show()
+
+def plot_depot_sensitivity_boxplot(results_df):
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(x="Depot Location Index", y="Objective Value", data=results_df)
+
+    plt.xlabel("Depot Location")
+    plt.ylabel("Objective Value (person hours)")
+    plt.title("Sensitivity of Objective Value to Depot Location")
+    plt.grid()
+    plt.savefig("results/boxplot_depot_sensitivity_boxplot.png", dpi = 300)
+    plt.show()
+
+# plot_depot_sensitivity_boxplot(results_df)#
+for (depot_index, seed), result in all_results.items():
+    if result and result["solution_x"]:
+        plot_solution(result, depot_index, seed)
+
+# Convert results to a DataFrame and save
+df_results = pd.DataFrame(results)
+# df_results.to_csv("depot_sensitivity_results.csv", index=False)
+
+plot_depot_sensitivity_boxplot(df_results)

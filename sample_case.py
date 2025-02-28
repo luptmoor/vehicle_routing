@@ -211,10 +211,8 @@ print()
 print('Total visit matrix');
 print(sum(solution[i, :, :] for i in range(M)));
 print()
-print('Total time needed:', round(m.ObjVal, 2), 'person hours.')
+print('Total time needed:', m.ObjVal, 'person hours.')
 #plt.show(); # only plots scenario, not solution
-
-
 
 
 verify_all_constraints(solution, demand_list, capacity_list)

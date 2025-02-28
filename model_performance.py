@@ -1,12 +1,10 @@
-import numpy as np
-import pandas as pd
 import matplotlib.pyplot as plt
 from gurobipy import *
 import os
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from sample_case_2 import run
+from sensitivity_analysis.sample_case_2 import run
 # Define the range for number of nodes (N) and fleet size (M)
 N_range = range(5, 15)  # Number of nodes (customers + depot)
 M_range = range(1, 9)   # Number of vehicles in fleet

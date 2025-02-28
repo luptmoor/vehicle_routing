@@ -12,37 +12,37 @@ def plot_fleet_composition_heatmaps(df_results):
     """
 
     # Ensure compositions with the same % type but different mixes are averaged
-    df_avg = df_results.groupby(["fleet_size", "% Fixed-Wing"])["objective_value"].mean().reset_index()
-    pivot_fw = df_avg.pivot(index="fleet_size", columns="% Fixed-Wing", values="objective_value")
+    df_avg = df_results.groupby(["Fleet Size", "% Fixed-Wing"])["Objective Value"].mean().reset_index()
+    pivot_fw = df_avg.pivot(index="Fleet Size", columns="% Fixed-Wing", values="Objective Value")
 
     plt.figure(figsize=(12, 6))
     sns.heatmap(pivot_fw, annot=True, cmap="coolwarm", fmt=".1f")
     plt.title("Fleet Size vs. Fixed-Wing % Impact on Objective Value (Averaged)")
     plt.xlabel("Percentage of Fixed-Wing Drones")
     plt.ylabel("Fleet Size (M)")
-    plt.savefig("Figures/heatmap_fixedwing.png")
+    plt.savefig("Figures/Fleet_composition/heatmap_fixedwing.png")
     plt.show()
 
-    df_avg = df_results.groupby(["fleet_size", "% Quadcopter"])["objective_value"].mean().reset_index()
-    pivot_qc = df_avg.pivot(index="fleet_size", columns="% Quadcopter", values="objective_value")
+    df_avg = df_results.groupby(["Fleet Size", "% Quadcopter"])["Objective Value"].mean().reset_index()
+    pivot_qc = df_avg.pivot(index="Fleet Size", columns="% Quadcopter", values="Objective Value")
 
     plt.figure(figsize=(12, 6))
     sns.heatmap(pivot_qc, annot=True, cmap="coolwarm", fmt=".1f")
     plt.title("Fleet Size vs. Quadcopter % Impact on Objective Value (Averaged)")
     plt.xlabel("Percentage of Quadcopter Drones")
     plt.ylabel("Fleet Size (M)")
-    plt.savefig("Figures/heatmap_quadcopter.png")
+    plt.savefig("Figures/Fleet_composition/heatmap_quadcopter.png")
     plt.show()
 
-    df_avg = df_results.groupby(["fleet_size", "% Blimp"])["objective_value"].mean().reset_index()
-    pivot_blimp = df_avg.pivot(index="fleet_size", columns="% Blimp", values="objective_value")
+    df_avg = df_results.groupby(["Fleet Size", "% Blimp"])["Objective Value"].mean().reset_index()
+    pivot_blimp = df_avg.pivot(index="Fleet Size", columns="% Blimp", values="Objective Value")
 
     plt.figure(figsize=(12, 6))
     sns.heatmap(pivot_blimp, annot=True, cmap="coolwarm", fmt=".1f")
     plt.title("Fleet Size vs. Blimp % Impact on Objective Value (Averaged)")
     plt.xlabel("Percentage of Blimp Drones")
     plt.ylabel("Fleet Size (M)")
-    plt.savefig("Figures/heatmap_blimp.png")
+    plt.savefig("Figures/Fleet_composition/heatmap_blimp.png")
 
     plt.show()
 
@@ -55,20 +55,20 @@ def plot_fleet_composition_perM(df_results):
     - Heatmap values: Average objective value.
     """
 
-    df_results["fleet_size"] = df_results["fleet_size"].astype(int)
+    df_results["Fleet Size"] = df_results["Fleet Size"].astype(int)
 
     # Round percentages properly to avoid duplicate pivot errors
     df_results["% Fixed-Wing"] = df_results["% Fixed-Wing"].round(1)
     df_results["% Quadcopter"] = df_results["% Quadcopter"].round(1)
     df_results["% Blimp"] = df_results["% Blimp"].round(1)
 
-    fleet_sizes = sorted(df_results["fleet_size"].unique())
+    fleet_sizes = sorted(df_results["Fleet Size"].unique())
 
     for M in fleet_sizes:
-        df_M = df_results[df_results["fleet_size"] == M].copy()
+        df_M = df_results[df_results["Fleet Size"] == M].copy()
 
         # Compute averages across compositions with the same % distribution
-        df_M = df_M.groupby(["% Fixed-Wing", "% Quadcopter", "% Blimp"]).agg({"objective_value": "mean"}).reset_index()
+        df_M = df_M.groupby(["% Fixed-Wing", "% Quadcopter", "% Blimp"]).agg({"Objective Value": "mean"}).reset_index()
 
         # Create a dataframe for plotting
         heatmap_data = pd.DataFrame(index=["Fixed-Wing", "Quadcopter", "Blimp"])
@@ -77,7 +77,7 @@ def plot_fleet_composition_perM(df_results):
                                                  ["% Fixed-Wing", "% Quadcopter", "% Blimp"]):
 
             valid_percentages = sorted(df_M[percentage_column].unique())  # Get applicable % values
-            avg_values = [df_M[df_M[percentage_column] == p]["objective_value"].mean() for p in valid_percentages]
+            avg_values = [df_M[df_M[percentage_column] == p]["Objective Value"].mean() for p in valid_percentages]
             heatmap_data.loc[drone_type, valid_percentages] = avg_values  # Fill data
 
         # Plot heatmap
@@ -89,12 +89,12 @@ def plot_fleet_composition_perM(df_results):
         plt.ylabel("Drone Type")
         plt.xticks(rotation=45)
 
-        plt.savefig(f"Figures/fleet_composition_perM_M{M}.png", dpi=300, bbox_inches="tight")
+        plt.savefig(f"Figures/Fleet_composition/fleet_composition_perM_M{M}.png", dpi=300, bbox_inches="tight")
         plt.show()
 
 
 
-df_results = pd.read_csv('fleet_composition_results.csv')
+df_results = pd.read_csv('../fleet_composition_results.csv')
 print(df_results)
 # Generate heatmaps
 plot_fleet_composition_heatmaps(df_results)

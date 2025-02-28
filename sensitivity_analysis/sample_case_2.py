@@ -11,7 +11,7 @@ from gurobipy import *
 import sys
 import os
 
-def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_multiplier = 1, random_drones=True, fleet_composition=None, seed = 2):
+def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_multiplier = 1, random_fleet=True, fleet_composition=None, seed = 2):
     np.random.seed(seed)
 
     # Vehicle type characteristics
@@ -32,8 +32,9 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
     customers, depot = nodes[:N - 1, :], nodes[N - 1, :]
     nodes[N, :] = depot  # duplicate depot node to mimic problem formulation from paper
 
+
     # Assign fleet composition
-    if random_drones:
+    if random_fleet:
         fleet_list = np.random.randint(0, 3, M)  # Randomly assign vehicle types (0, 1, 2)
     else:
         if fleet_composition is None or len(fleet_composition) != M:
@@ -60,7 +61,8 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
         if rem_fleet_capacity == 0:
             break
     demand_list = [int(x) for x in demand_list]
-    print(demand_list)
+
+
     # Generate distance matrix (N+1 x N+1)
     distance_matrix = np.zeros((N + 1, N + 1))
     for i, j in [(i, j) for i in range(N + 1) for j in range(N + 1)]:
@@ -83,46 +85,50 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
     m.setObjective(sum(x[i, j, k] * traveltime_matrix[i, j, k] for i in range(M) for j in range(N) for k in range(N + 1)))
 
     # Constraints
+    # 1. Every customer k is visited once by a vehicle and drones also leave from every customer
     for k in range(N - 1):
-        m.addConstr(sum(x[i, j, k] for i in range(M) for j in range(N)) == 1)
+        m.addConstr(sum(x[i, j, k] for i in range(M) for j in range(N)) == 1);
 
+    # 2. Vehicles i leave at depotStart N and do not come back
     for i in range(M):
-        m.addConstr(sum(x[i, N - 1, k] for k in range(N - 1)) == 1)
-        m.addConstr(sum(x[i, j, N - 1] for j in range(N)) == 0)
-        m.addConstr(sum(x[i, N + 1 - 1, k] for k in range(N + 1)) == 0)
-        m.addConstr(sum(x[i, j, N + 1 - 1] for j in range(N - 1)) == 1)
+        m.addConstr(sum(x[i, N - 1, k] for k in range(N - 1)) == 1);  # yes: from N to k until N-1 (customers)
+        m.addConstr(sum(x[i, j, N - 1] for j in range(N)) == 0);  # no: from j to N
 
+    # 3. Vehicles i do not leave at depotEnd N+1 but always come back
+    for i in range(M):
+        m.addConstr(sum(x[i, N + 1 - 1, k] for k in range(N + 1)) == 0);
+        m.addConstr(sum(x[i, j, N + 1 - 1] for j in range(N - 1)) == 1);
+
+    # 4. If a vehicle i goes to a node, it also needs to leave from that node
     for i in range(M):
         for j in range(N - 1):
             m.addConstr(
-                sum(x[i, j, k] for k in list(range(N - 1)) + [N] if k != j) - sum(x[i, k, j] for k in range(N)) == 0
-            )
+                sum(x[i, j, k] for k in list(range(N - 1)) + [N] if k != j) - sum(x[i, k, j] for k in range(N)) == 0);
+    #                       outgoing arcs from j                    -   incoming arcs to j                == 0
+    # for k in range(N-1):
+    # m.addConstr(x[i, j, k] + x[i, k, j] < 2);
 
-    # Subtour elimination
-    u = m.addVars(range(M), range(N - 1), vtype=GRB.CONTINUOUS, lb=0, ub=N - 1, name="u")
+    # 5. Subtour elimination
+    u = m.addVars(range(M), range(N - 1), vtype=GRB.CONTINUOUS, lb=0, ub=N - 1, name="u");
     for i in range(M):
         for j in range(N - 1):
             for k in range(N - 1):
                 if j != k:
-                    m.addConstr(u[i, j] - u[i, k] + (N - 1) * x[i, j, k] <= N - 2)
+                    m.addConstr(u[i, j] - u[i, k] + (N - 1) * x[i, j, k] <= N - 2);
 
-    # Vehicle capacity constraint
+    # 6. Vehicle i's capacity is not exceeded.
     for i in range(M):
-        m.addConstr(sum(x[i, j, k] * demand_list[k] for j in range(N) for k in range(N - 1)) <= capacity_list[i])
+        m.addConstr(sum(x[i, j, k] * demand_list[k] for j in range(N) for k in range(N - 1)) <= capacity_list[i]);
 
     m.optimize()
     if m.status == GRB.OPTIMAL:
         total_distance = sum(
             distance_matrix[j][k]
-            for i in range(M) for j in range(N + 1) for k in range(N + 1)
-            if x[i, j, k].X > 0.5  #  Only access `.X` if model is optimal
-        )
+            for i in range(M) for j in range(N + 1) for k in range(N + 1))
 
         runtime = m.Runtime  # Extract computation time
 
         selected_edges = {(i, j, k) for i in range(M) for j in range(N + 1) for k in range(N + 1) if x[i, j, k].X > 0.5}
-
-
 
         return {
             "objective_value": m.ObjVal,
@@ -131,10 +137,17 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
             "fleet": fleet_list,
             "solution_x": selected_edges
         }
-    else:
-        return None
 
-run(N = 9, M = 5, seed = 5)
+    else:
+        return {
+            "objective_value": None,
+            "total_distance": None,
+            "runtime": None,
+            "fleet": fleet_list,  # Always return the fleet composition
+            "solution_x": None
+        }
+
+print(run(N = 5, M = 2, seed = 42))
 
 
 
