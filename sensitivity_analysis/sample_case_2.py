@@ -11,8 +11,10 @@ from gurobipy import *
 import sys
 import os
 
-def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_multiplier = 1, random_fleet=True, fleet_composition=None, seed = 2):
+def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_multiplier = 1, random_fleet=True, fleet_composition=None, fixed_demand = None, fixed_nodes = None, seed = 2):
     np.random.seed(seed)
+
+    print(f"Running for N = {N}, M = {M}, seed = {seed}")
 
     # Vehicle type characteristics
     VEHICLE_CAPACITIES = [6, 15, 40]  # kg
@@ -22,15 +24,16 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
     VEHICLE_CAPACITIES = [c * capacity_multiplier for c in VEHICLE_CAPACITIES ]
 
     # Generate 100 x 100 km map
-    side_array = np.arange(MAP_SIZE)
-    x, y = np.meshgrid(side_array, side_array)
-    coordinate_grid = np.vstack([x.ravel(), y.ravel()]).T
-
-    # Choose N map points as depot and customers
-    nodes = np.zeros((N + 1, 2))
-    nodes[:N, :] = coordinate_grid[np.random.choice(range(len(coordinate_grid)), N, replace=False)]
-    customers, depot = nodes[:N - 1, :], nodes[N - 1, :]
-    nodes[N, :] = depot  # duplicate depot node to mimic problem formulation from paper
+    if fixed_nodes is None:
+        side_array = np.arange(MAP_SIZE)
+        x, y = np.meshgrid(side_array, side_array)
+        coordinate_grid = np.vstack([x.ravel(), y.ravel()]).T
+        nodes = np.zeros((N + 1, 2))
+        nodes[:N, :] = coordinate_grid[np.random.choice(range(len(coordinate_grid)), N, replace=False)]
+        customers, depot = nodes[:N - 1, :], nodes[N - 1, :]
+        nodes[N, :] = depot  # Duplicate depot for consistency
+    else:
+        nodes = fixed_nodes  # Use predefined locations
 
 
     # Assign fleet composition
@@ -49,18 +52,38 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
     capacity_list = [VEHICLE_CAPACITIES[x] for x in fleet_list]
     fleet_capacity = sum(capacity_list)
 
-    # Generate demand list (N+1) (depot counted twice: as start and end)
-    demand_list = [0] * (N + 1)
-    rem_fleet_capacity = fleet_capacity
-    max_demand = max(2, rem_fleet_capacity // (N - 1) * 7 // 4)  # Ensure max_demand is at least 2
 
-    for i in range(N - 1):
-        demand = min(np.random.randint(1, max_demand), rem_fleet_capacity - M - 1)
-        demand_list[i] += demand
-        rem_fleet_capacity -= demand
-        if rem_fleet_capacity == 0:
-            break
-    demand_list = [int(x) for x in demand_list]
+    # if fleet_capacity < FIXED_TOTAL_DEMAND:
+    #     raise ValueError(
+    #         f"Fleet capacity {fleet_capacity} is too small for fixed demand {FIXED_TOTAL_DEMAND}. Increase M or use larger drones.")
+
+    # Generate demand list (N+1) (depot counted twice: as start and end)
+    if fixed_demand is None:
+        demand_list = [0] * (N + 1)
+        rem_fleet_capacity = fleet_capacity
+        # Compute a maximum demand based on fleet capacity (as in your original model)
+        max_demand = max(2, rem_fleet_capacity // (N - 1) * 7 // 4)
+        print(f"Fleet composition = {fleet_list} with capacity {fleet_capacity}")
+        for i in range(N - 1):
+            # Ensure we don't exceed remaining capacity too much
+            demand = min(np.random.randint(1, max_demand), rem_fleet_capacity - M - 1)
+            demand_list[i] += demand
+            rem_fleet_capacity -= demand
+            if rem_fleet_capacity <= 0:
+                break
+    else:
+        demand_list = fixed_demand
+
+
+    print(demand_list)
+    # FIXED_TOTAL_DEMAND = 500  # Adjust this based on scenario
+    #
+    # # Distribute demand randomly among customers
+    # demand_list = np.random.dirichlet(np.ones(N - 1)) * FIXED_TOTAL_DEMAND
+    # demand_list = np.round(demand_list).astype(int).tolist()  # Convert to integer
+    # demand_list.append(0)
+    #
+    # demand_list = [int(x) for x in demand_list]
 
 
     # Generate distance matrix (N+1 x N+1)
@@ -120,7 +143,14 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
     for i in range(M):
         m.addConstr(sum(x[i, j, k] * demand_list[k] for j in range(N) for k in range(N - 1)) <= capacity_list[i]);
 
+
     m.optimize()
+    print("distance matrix")
+    print(distance_matrix)
+    print("time matrix")
+    print(traveltime_matrix)
+    print(velocity_list)
+
     if m.status == GRB.OPTIMAL:
         total_distance = sum(
             distance_matrix[j][k]
@@ -132,22 +162,35 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
 
         return {
             "objective_value": m.ObjVal,
+            "normalized_objective_value": m.ObjVal/ sum(demand_list),
             "total_distance": total_distance,
             "runtime": runtime,
             "fleet": fleet_list,
-            "solution_x": selected_edges
+            "demand_list": demand_list,
+            "total_demand": sum(demand_list),
+            "solution_x": selected_edges,
+            "nodes": nodes,
+            "distance_matrix": distance_matrix,
+            "velocity_list": velocity_list
+
         }
+
 
     else:
         return {
             "objective_value": None,
+            "normalized_objective_value": None,
             "total_distance": None,
             "runtime": None,
-            "fleet": fleet_list,  # Always return the fleet composition
-            "solution_x": None
+            "fleet": fleet_list,
+            "demand_list": demand_list,
+            "total_demand": sum(demand_list),
+            "solution_x": None,
+            "nodes": nodes,
+            "distance_matrix": distance_matrix,
+            "velocity_list": velocity_list
         }
 
-print(run(N = 5, M = 2, seed = 42))
 
 
 

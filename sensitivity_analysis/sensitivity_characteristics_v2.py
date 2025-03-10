@@ -11,9 +11,44 @@ N = 9
 
 
 # ------------------------ SPEED SENSITIVITY ANALYSIS ------------------------
+def dicts_equal(dict1, dict2, tol=1e-6):
+    """
+    Compares two dictionaries to check if they contain the same keys
+    and if their values are numerically close (ignoring order).
+
+    Parameters:
+    - dict1, dict2: Dictionaries to compare.
+    - tol: Tolerance for floating-point differences.
+
+    Returns:
+    - True if they are equivalent, False otherwise.
+    """
+    if set(dict1.keys()) != set(dict2.keys()):
+        return False  # Different keys mean different dictionaries
+
+    return all(abs(dict1[k] - dict2[k]) < tol for k in dict1)
+
+
+def compute_distance_per_drone_type(route_set, distance_matrix, fleet):
+    """Computes total travel distance per drone type."""
+    drone_type_distances = {}
+
+    for vehicle, start, end in route_set:
+        drone_type = fleet[vehicle]  # Get drone type based on vehicle index
+        distance = distance_matrix[start, end]
+
+        if drone_type not in drone_type_distances:
+            drone_type_distances[drone_type] = 0.0
+        drone_type_distances[drone_type] += distance  # Accumulate distance for that drone type
+
+    return drone_type_distances
+
 
 def run_speed_analysis(N=9, M=5, trials=1, lower=0.4, upper=1.6, speed_steps=30):
-    """Runs speed sensitivity analysis, recording the multipliers where the solution changes."""
+    """
+    Runs speed sensitivity analysis, recording the multipliers where the solution changes.
+    Uses correct verification of routing changes based on total distance per drone type.
+    """
     left_changes, right_changes = [], []
     no_change_lower, no_change_upper = 0, 0  # Counters for trials where no change was observed
     infeasible_base = 0
@@ -21,7 +56,8 @@ def run_speed_analysis(N=9, M=5, trials=1, lower=0.4, upper=1.6, speed_steps=30)
     for seed in range(trials):
         np.random.seed(seed)
         base_result = run(N=N, M=M, speed_multiplier=1.0, random_fleet=True, seed=seed)
-        if base_result["solution_x"] is None:
+
+        if base_result is None or base_result["solution_x"] is None:
             print(f"WARNING: Base case infeasible for seed {seed}. Skipping trial.")
             infeasible_base += 1
             continue
@@ -30,6 +66,8 @@ def run_speed_analysis(N=9, M=5, trials=1, lower=0.4, upper=1.6, speed_steps=30)
         fixed_demand = base_result["demand_list"]
         fixed_nodes = base_result["nodes"]
         base_edges = base_result["solution_x"]
+        base_distance_per_type = compute_distance_per_drone_type(base_edges, base_result["distance_matrix"],
+                                                                 base_result["fleet"])
 
         left_changed, right_changed = False, False  # Flags to track if a change occurs
 
@@ -37,19 +75,31 @@ def run_speed_analysis(N=9, M=5, trials=1, lower=0.4, upper=1.6, speed_steps=30)
         for multiplier in np.linspace(1.0, lower, speed_steps):
             result = run(N, M, speed_multiplier=multiplier, random_fleet=False, fleet_composition=fixed_fleet,
                          seed=seed, fixed_demand=fixed_demand, fixed_nodes=fixed_nodes)
-            if result and result["solution_x"] != base_edges:
-                left_changes.append(multiplier)
-                left_changed = True
-                break  # Stop after first change
+
+            if result and result["solution_x"] is not None:
+                new_distance_per_type = compute_distance_per_drone_type(result["solution_x"], result["distance_matrix"],
+                                                                        result["fleet"])
+
+                # Only record real routing changes (not just drone swaps)
+                if not dicts_equal(base_distance_per_type, new_distance_per_type):
+                    left_changes.append(multiplier)
+                    left_changed = True
+                    break  # Stop after first change
 
         # Test upper multipliers (speed increase)
         for multiplier in np.linspace(1.0, upper, speed_steps):
             result = run(N, M, speed_multiplier=multiplier, random_fleet=False, fleet_composition=fixed_fleet,
                          seed=seed, fixed_demand=fixed_demand, fixed_nodes=fixed_nodes)
-            if result and result["solution_x"] != base_edges:
-                right_changes.append(multiplier)
-                right_changed = True
-                break  # Stop after first change
+
+            if result and result["solution_x"] is not None:
+                new_distance_per_type = compute_distance_per_drone_type(result["solution_x"], result["distance_matrix"],
+                                                                        result["fleet"])
+
+                # Only record real routing changes (not just drone swaps)
+                if not dicts_equal(base_distance_per_type, new_distance_per_type):
+                    right_changes.append(multiplier)
+                    right_changed = True
+                    break  # Stop after first change
 
         # If no change was observed for a trial, increment counter
         if not left_changed:
@@ -58,13 +108,14 @@ def run_speed_analysis(N=9, M=5, trials=1, lower=0.4, upper=1.6, speed_steps=30)
             no_change_upper += 1
 
     print("\nFinal Counts for Speed Sensitivity:")
-    print(f"Speed Down Changes: {len(left_changes), Counter(left_changes)}")
-    print(f"Speed Up Changes: {len(right_changes), (right_changes)}")
+    print(f"Speed Down Changes: {len(left_changes)}, {Counter(left_changes)}")
+    print(f"Speed Up Changes: {len(right_changes)}, {Counter(right_changes)}")
     print(f"Infeasible Base Cases: {infeasible_base}")
     print(f"Trials with No Lower Change: {no_change_lower}")
     print(f"Trials with No Upper Change: {no_change_upper}")
 
     return Counter(left_changes), Counter(right_changes)
+
 
 
 def plot_speed_analysis(N=9, M=5, speed_steps=30, lower=0.4, upper=1.6, trials=8):
@@ -120,8 +171,10 @@ def run_capacity_infeasibility_analysis(N=9, M=5, trials=8, lower=0.4, capacity_
     """Finds the first lower multiplier where the model becomes infeasible, and checks if it ever does."""
     lower_infeasible = []
     always_feasible = 0  # Count how many trials never became infeasible
-    infeasible_base = 0
+
     for seed in range(trials):
+        np.random.seed(seed)
+        infeasible_base = 0
         base_result = run(N, M, capacity_multiplier=1.0, random_fleet=True, seed=seed)
         if base_result["solution_x"] is None:
             print(f"WARNING: Base case infeasible for seed {seed}. Skipping trial.")
@@ -179,8 +232,8 @@ def plot_capacity_analysis(N=9, M=5, capacity_steps=30, lower=0.4, trials=8):
     ax.bar(tested_multipliers, lower_frequencies, width=0.02, label="Decrease", color="tab:blue", zorder=2)
 
     # Labels and title
-    ax.set_xlabel("Capacity Multiplier Where Model Becomes Infeasible", fontsize = 15)
-    ax.set_ylabel("Frequency (Number of Trials)", fontsize = 15)
+    ax.set_xlabel("Capacity Multiplier Where Model Becomes Infeasible", fontsize = 14)
+    ax.set_ylabel("Frequency (Number of Trials)", fontsize = 14)
     ax.set_title(f"Distribution of Capacity Infeasibility Thresholds (M={M}, N={N}, Trials={trials})", fontsize = 16)
 
     # Set x-ticks to ensure all multipliers are displayed
@@ -192,7 +245,7 @@ def plot_capacity_analysis(N=9, M=5, capacity_steps=30, lower=0.4, trials=8):
     ax.set_xlim(lower, 1)
     ax.legend()
 
-    plt.savefig(f"Figures/characteristics/distribution_capacity_N{N}_M{M}.png", dpi=300,
+    plt.savefig("Figures/characteristics/distribution_capacity.png", dpi=300,
                 bbox_inches='tight' )
     plt.show()
 
@@ -243,7 +296,7 @@ def run_demand_infeasibility_analysis(N=9, M=5, trials=8, upper=2.0, demand_step
 
 
 
-def plot_demand_infeasibility_analysis(N=9, M=5, demand_steps=51, upper=2.0, trials=8):
+def plot_demand_infeasibility_analysis(N=9, M=5, demand_steps=30, upper=2.0, trials=8):
     """Plots the distribution of demand multipliers where infeasibility occurs (higher only)."""
     upper_counts = run_demand_infeasibility_analysis(N, M, trials, upper, demand_steps)
     print(upper_counts)
@@ -267,8 +320,8 @@ def plot_demand_infeasibility_analysis(N=9, M=5, demand_steps=51, upper=2.0, tri
     ax.bar(tested_multipliers, upper_frequencies, width=0.02, label="Increase", color="tab:orange", zorder=2)
 
     # Labels and title
-    ax.set_xlabel("Demand Multiplier Where Model Becomes Infeasible", fontsize=15)
-    ax.set_ylabel("Frequency (Number of Trials)", fontsize=15)
+    ax.set_xlabel("Demand Multiplier Where Model Becomes Infeasible", fontsize=14)
+    ax.set_ylabel("Frequency (Number of Trials)", fontsize=14)
     ax.set_title(f"Distribution of Demand Infeasibility Thresholds (M={M}, N={N}, Trials={trials})", fontsize=16)
 
     # Set x-ticks to ensure all multipliers are displayed
@@ -284,9 +337,9 @@ def plot_demand_infeasibility_analysis(N=9, M=5, demand_steps=51, upper=2.0, tri
     plt.show()
 
 
-# plot_speed_analysis(N=9, M=5, lower=0.6, upper=1.4, speed_steps=21, trials=100)
+plot_speed_analysis(N=9, M=5, lower=0.6, upper=1.4, speed_steps=21, trials=100)
 
-plot_capacity_analysis(N=9, M=5, lower=0.5, capacity_steps=26, trials=100)
-
+# plot_capacity_analysis(N=9, M=5, lower=0.5, capacity_steps=26, trials=100)
+#
 # plot_demand_infeasibility_analysis(N=9, M=5, upper=2, demand_steps=51, trials=100)
 

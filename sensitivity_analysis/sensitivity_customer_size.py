@@ -4,25 +4,25 @@ import pandas as pd
 
 from sample_case_2 import run
 
-# List of fleet sizes
-M_list = range(2, 10)
+# List of fleet sizes to iterate over
+M_list = range(2, 8)
 
-# List of customer counts
-N_list = range(9, 14)
+# Define the range of N (number of customers)
+N_list = range(3, 14)
 
-def sensitivity_fleet(N, fleet_composition=None, random_fleet=True, trials=1):
+def sensitivity_nodes(M, fleet_composition=None, random_fleet=True, trials=1):
     """
-    Runs the optimization for different fleet sizes and stores all trial results in a DataFrame.
+    Runs the optimization for different numbers of customers (N) and stores all trial results in a DataFrame.
     """
     results_list = []
     infeasibility_summary = {}
 
 
-    for M in M_list:
+    for N in N_list:
         if M > N:
             continue
+        print(f"Running trials for M = {M}, N = {N}")
 
-        fleet_subset = fleet_composition[:M].copy() if fleet_composition else None
         infeasible_trials = []
 
         trial_objective_values = []
@@ -32,7 +32,7 @@ def sensitivity_fleet(N, fleet_composition=None, random_fleet=True, trials=1):
         trial_results = []
 
         for seed in range(trials):
-            result = run(N=N, M=M, random_fleet=random_fleet, fleet_composition=fleet_subset, seed=seed)
+            result = run(N=N, M=M, random_fleet=random_fleet, fleet_composition=fleet_composition, seed=seed)
 
             if result and result["objective_value"] is not None:
                 feasibility = "Yes"
@@ -68,7 +68,11 @@ def sensitivity_fleet(N, fleet_composition=None, random_fleet=True, trials=1):
                 "Feasible": feasibility
             })
 
-        infeasibility_summary[(N, M, tuple(result["fleet"]))] = (infeasible_trials, len(infeasible_trials) / trials)
+        if len(set(result["fleet"])) == 1:
+            fleet_type = result["fleet"][0]
+        else:
+            fleet_type = "random"
+        infeasibility_summary[(N, M, fleet_type)] = (infeasible_trials, len(infeasible_trials) / trials)
 
         avg_obj_value = np.nanmean(trial_objective_values) if trial_objective_values else np.nan
         avg_norm_value = np.nanmean(trial_normalized_values) if trial_normalized_values else np.nan
@@ -95,23 +99,23 @@ def sensitivity_fleet(N, fleet_composition=None, random_fleet=True, trials=1):
     return df_results, infeasibility_summary
 
 
-def compute_sensitivity_results(N, trials=1, random_fleet=False):
+def compute_node_sensitivity_results(M, trials=1, random_fleet=False):
     fleet_compositions = {
-        'Fixed-Wing (Type 1)': [0] * max(M_list),
-        'Quadcopter (Type 2)': [1] * max(M_list),
-        'Cargo Blimp (Type 3)': [2] * max(M_list)
+        'Fixed-Wing (Type 1)': [0] * M,
+        'Quadcopter (Type 2)': [1] * M,
+        'Cargo Blimp (Type 3)': [2] * M
     }
 
     results_df_list = []
     infeasibility_data = {}
 
     if random_fleet:
-        df, infeasibility = sensitivity_fleet(N=N, fleet_composition=None, random_fleet=True, trials=trials)
+        df, infeasibility = sensitivity_nodes(M = M, fleet_composition = None, random_fleet=True, trials=trials)
         results_df_list.append(df)
         infeasibility_data.update(infeasibility)
     else:
         for type_name, fleet_comp in fleet_compositions.items():
-            df, infeasibility = sensitivity_fleet(N=N, fleet_composition=fleet_comp, random_fleet=False, trials=trials)
+            df, infeasibility = sensitivity_nodes(M, fleet_composition=fleet_comp, random_fleet=False, trials=trials)
             df["Fleet Composition"] = type_name
             results_df_list.append(df)
             infeasibility_data.update(infeasibility)
@@ -119,9 +123,8 @@ def compute_sensitivity_results(N, trials=1, random_fleet=False):
     final_results_df = pd.concat(results_df_list, ignore_index=True)
 
     file_prefix = "random" if random_fleet else "fixed"
-    final_results_df.to_csv(f"fleet_size/sensitivity_analysis_{file_prefix}_N{N}_fleet_size.csv", index=False)
+    final_results_df.to_csv(f"nodes/sensitivity_analysis_{file_prefix}_M{M}_nodes.csv", index=False)
 
-    # Convert infeasibility summary to a DataFrame
     infeasibility_df = pd.DataFrame.from_dict(
         {key: [val[0], val[1]] for key, val in infeasibility_data.items()},
         orient='index',
@@ -129,18 +132,20 @@ def compute_sensitivity_results(N, trials=1, random_fleet=False):
     )
     infeasibility_df.index = pd.MultiIndex.from_tuples(infeasibility_df.index, names=["Nodes", "Fleet Size", "Fleet Composition"])
 
-    # Save infeasibility summary CSV
-    infeasibility_df.to_csv(f"Infeasibility/infeasibility_summary_{file_prefix}_N{N}_fleet_size.csv")
+    infeasibility_df.to_csv(f"Infeasibility/infeasibility_summary_{file_prefix}_{M}M_nodes.csv")
+
 
     return final_results_df
 
-def plot_metric_fleet(df_results, metric, ylabel, title, filename, random_fleet, N):
-    """ Generalized function to plot different metrics vs Fleet Size """
+
+
+def plot_metric_nodes(df_results, metric, ylabel, title, filename, random_fleet, M):
+    """ Generalized function to plot different metrics vs Number of Nodes """
     plt.figure(figsize=(8, 6))
 
     if random_fleet:
-        avg_results = df_results.groupby("Fleet Size")[metric].mean()
-        std_results = df_results.groupby("Fleet Size")[f"Std {metric}"].mean().fillna(0)
+        avg_results = df_results.groupby("Nodes")[metric].mean()
+        std_results = df_results.groupby("Nodes")[f"Std {metric}"].mean().fillna(0)  # Avoid NaN in std deviation
         if avg_results.empty:
             print(f"Skipping {metric}: No valid data")
             return
@@ -150,42 +155,48 @@ def plot_metric_fleet(df_results, metric, ylabel, title, filename, random_fleet,
         for i, fleet_type in enumerate(fleet_types):
             subset = df_results[df_results["Fleet Composition"] == fleet_type]
             if subset.dropna(subset=[f"Avg {metric}"]).empty:
-                continue
+                continue  # Skip fleet type if no valid data
+
             std_values = subset[f"Std {metric}"].fillna(0).values
-            plt.errorbar(subset["Fleet Size"] + 0.03*i, subset[f"Avg {metric}"], yerr=std_values, fmt="o-", capsize=4, label=fleet_type)
+            plt.errorbar(subset["Nodes"] + 0.03*i, subset[f"Avg {metric}"], yerr=std_values, fmt="o-", capsize=4, label=fleet_type)
 
-    plt.xlabel("Fleet Size (M)", fontsize = 14)
+    plt.xlabel("Number of Nodes (N)", fontsize = 14)
     plt.ylabel(ylabel, fontsize = 14)
-    valid_fleet_sizes = df_results[df_results["Fleet Size"] <= df_results["Nodes"].max()]["Fleet Size"].unique()
-    plt.xticks(sorted(valid_fleet_sizes))
-    plt.xlim(min(valid_fleet_sizes) -0.5, max(valid_fleet_sizes) + 0.5)
-    plt.title(title, fontsize = 16)
-
+    valid_nodes = df_results[df_results["Nodes"] >= df_results["Fleet Size"].min()][
+        "Nodes"].unique()
+    plt.xlim(min(valid_nodes) - 0.5, max(valid_nodes) + 0.5)
+    plt.xticks(sorted(valid_nodes))
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
 
+    plt.title(title, fontsize = 16)
     if not random_fleet:
         plt.legend()
     plt.grid()
     file_prefix = "random" if random_fleet else "fixed"
-    plt.savefig(f"Figures/Fleet_size/{file_prefix}/N{N}/{filename}_N{N}_{file_prefix}_size.png", dpi=300, bbox_inches="tight")
+    plt.savefig(f"Figures/Customer_size/{file_prefix}/M{M}/{filename}_M{M}_{file_prefix}_nodes.png", dpi=300, bbox_inches="tight")
     plt.show()
 
 
-def plot_results_fleet(df_results, random_fleet, N):
-    """Plots all required metrics using filtered data for fleet size sensitivity."""
-    plot_metric_fleet(df_results, "Objective Value", "Objective Value (Cost)",
-                      f"Averaged Objective Value vs. Fleet Size (N = {N})", "objective_fleet_size", random_fleet, N)
-    plot_metric_fleet(df_results, "Normalized Objective Value", "Total Hours per KG Demand",
-                      f"Averaged Normalized Objective Value vs. Fleet Size (N = {N})", "normalized_objective_fleet_size", random_fleet, N)
-    plot_metric_fleet(df_results, "Total Distance", "Total Travel Distance",
-                      f"Averaged Total Distance vs. Fleet Size (N = {N})", "distance_fleet_size", random_fleet, N)
-    plot_metric_fleet(df_results, "Runtime", "Computation Runtime (s)",
-                      f"Averaged Computation Time vs. Fleet Size (N = {N})", "runtime_fleet_size", random_fleet, N)
+def plot_results(df_results, random_fleet, M):
+    """Plots all required metrics using filtered data."""
+    plot_metric_nodes(df_results, "Objective Value", "Objective Value (Cost)",
+                      f"Averaged Objective Value vs. Number of Nodes (M = {M})", "objective_node_size",
+                      random_fleet, M)
+    plot_metric_nodes(df_results, "Normalized Objective Value", "Total Hours per KG Demand",
+                      f"Averaged Normalized Objective Value vs. Number of Nodes (M = {M})",
+                      "normalized_objective_node_size", random_fleet, M)
+    plot_metric_nodes(df_results, "Total Distance", "Total Travel Distance",
+                      f"Averaged Total Distance vs. Number of Nodes (M = {M})", "distance_node_size",
+                      random_fleet, M)
+    plot_metric_nodes(df_results, "Runtime", "Computation Runtime (s)",
+                      f"Averaged Computation Time vs. Number of Nodes (M = {M})", "runtime_node_size",
+                      random_fleet, M)
 
-# Run analysis for multiple values of N
-for N in N_list:
-    results_fixed = compute_sensitivity_results(N=N, trials=10, random_fleet=False)
-    results_random = compute_sensitivity_results(N=N, trials=10, random_fleet=True)
-    plot_results_fleet(results_fixed, random_fleet=False, N=N)
-    plot_results_fleet(results_random, random_fleet=True, N=N)
+# Run analysis for multiple values of M
+for M in M_list:
+    results_fixed = compute_node_sensitivity_results(M=M, trials=10, random_fleet=False)
+    results_random = compute_node_sensitivity_results(M=M, trials=10, random_fleet=True)
+
+    plot_results(results_fixed, random_fleet=False, M=M)
+    plot_results(results_random, random_fleet=True, M=M)

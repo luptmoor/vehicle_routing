@@ -7,129 +7,318 @@ from sample_case_2 import run
 M = 5
 N = 9
 TRIALS = 100
-LOWER = 0.91
-UPPER = 1.09
-STEPS = 4
 
 
-def compute_sensitivity_changes(N=9, M=5, trials=100, lower=0.91, upper=1.09, steps=4, parameter="speed"):
+
+def compute_speed_sensitivity(N=9, M=5, trials=100, lower=0.94, upper=1.06, steps=4):
     """
-    Computes percentage changes in objective value and total distance for trials where the solution changed.
-    - `parameter`: "speed" or "capacity" to indicate what is being analyzed.
-    - Returns a dataframe for visualization.
+    Computes the percentage changes in objective value and normalized objective value for speed sensitivity.
+    - Records changes for all cases, not just when the optimal solution changes.
+    - Stores the base route and changed route for comparison.
     """
-    lower_multipliers = np.round(np.linspace(1.0, lower, steps), decimals=4)
-    upper_multipliers = np.round(np.linspace(1.0, upper, steps), decimals=4)
-
+    multipliers_decrease = np.linspace(1.0, lower, steps)
+    multipliers_increase = np.linspace(1.0, upper, steps)
     results = []
 
     for seed in range(trials):
         np.random.seed(seed)
-        base_result = run(N=N, M=M, speed_multiplier=1.0, capacity_multiplier=1.0, random_fleet=True, seed=seed)
+
+        # Run base case to fix fleet, demand, and customer locations
+        base_result = run(N=N, M=M, speed_multiplier=1.0, random_fleet=True, seed=seed)
 
         if base_result is None or base_result["objective_value"] is None:
-            continue
+            continue  # Skip infeasible base cases
 
         base_obj = base_result["objective_value"]
-        base_dist = base_result["total_distance"]
+        base_norm_obj = base_result["normalized_objective_value"]
+        base_edges = base_result["solution_x"]  # Store optimal solution structure
+
+        # Fix fleet, demand, and nodes for controlled sensitivity analysis
+        fixed_fleet = base_result["fleet"]
+        fixed_demand = base_result["demand_list"]
+        fixed_nodes = base_result["nodes"]
+
+        # Iterate over decreasing multipliers
+        for multiplier in multipliers_decrease:
+            if multiplier == 1:
+                continue
+            result = run(
+                N=N, M=M,
+                speed_multiplier=multiplier,
+                random_fleet=False, fleet_composition=fixed_fleet,
+                fixed_demand=fixed_demand, fixed_nodes=fixed_nodes,
+                seed=seed
+            )
+
+            # Skip infeasible results
+            if result["objective_value"] is None:
+                continue
+
+            # Record changes for all cases (not just when the solution changes)
+            solution_changed = result["solution_x"] != base_edges  # Boolean check
+
+            results.append({
+                "Trial": seed,
+                "Multiplier": multiplier,
+                "Change Type": "Decrease",
+                "Base Obj": base_obj,
+                "New Obj": result["objective_value"],
+                "Objective Value Change %": (result["objective_value"] - base_obj) / base_obj * 100,
+                "Objective Value Change (Abs)": result["objective_value"] - base_obj,
+                "Normalized Objective Value Change %": (result["normalized_objective_value"] - base_norm_obj) / base_norm_obj * 100,
+                "Normalized Objective Value Change (Abs)": result["normalized_objective_value"] - base_norm_obj,
+                "Solution Changed": solution_changed,
+                "Fleet Composition": fixed_fleet,
+                "Base Route": base_edges,
+                "Changed Route": result["solution_x"]
+            })
+
+        # Iterate over increasing multipliers
+        for multiplier in multipliers_increase:
+            if multiplier == 1:
+                continue
+            result = run(
+                N=N, M=M,
+                speed_multiplier=multiplier,
+                random_fleet=False, fleet_composition=fixed_fleet,
+                fixed_demand=fixed_demand, fixed_nodes=fixed_nodes,
+                seed=seed
+            )
+
+            # Skip infeasible results
+            if result["objective_value"] is None:
+                continue
+
+            # Record changes for all cases
+            solution_changed = result["solution_x"] != base_edges
+
+            results.append({
+                "Trial": seed,
+                "Multiplier": multiplier,
+                "Change Type": "Increase",
+                "Base Obj": base_obj,
+                "New Obj": result["objective_value"],
+                "Objective Value Change %": (result["objective_value"] - base_obj) / base_obj * 100,
+                "Objective Value Change (Abs)": result["objective_value"] - base_obj,
+                "Normalized Objective Value Change %": (result["normalized_objective_value"] - base_norm_obj) / base_norm_obj * 100,
+                "Normalized Objective Value Change (Abs)": result["normalized_objective_value"] - base_norm_obj,
+                "Solution Changed": solution_changed,
+                "Fleet Composition": fixed_fleet,
+                "Base Route": base_edges,
+                "Changed Route": result["solution_x"]
+            })
+
+    df_results = pd.DataFrame(results)
+    df_results.to_csv("speed_sensitivity_results.csv", index=False)
+    return df_results
+
+
+
+
+def plot_speed_sensitivity(df):
+    """Plots speed sensitivity using scatter plots with multipliers on the x-axis."""
+
+    # Ensure correct ordering of multipliers
+    unique_multipliers = sorted(df["Multiplier"].unique())
+
+    # Define colors based on change type
+    color_map = {"Decrease": "blue", "Increase": "orange"}
+
+    # Objective Value Change
+    plt.figure(figsize=(8, 5))
+    sns.scatterplot(
+        x="Multiplier", y="Objective Value Change %", hue="Change Type",
+        data=df, palette=color_map, s=100  # Increase dot size
+    )
+    plt.xticks(unique_multipliers)  # Ensure all multipliers appear on the x-axis
+    plt.xlabel("Speed Multiplier", fontsize=14)
+    plt.ylabel("Objective Value Change (%)", fontsize=14)
+    plt.title("Objective Value Change vs Speed Multiplier", fontsize=16)
+    plt.grid(axis='y', linestyle="--", alpha=0.7)
+    plt.legend(title="Change Type")
+    plt.show()
+
+    # Normalized Objective Value Change (Saved)
+    plt.figure(figsize=(8, 5))
+    sns.scatterplot(
+        x="Multiplier", y="Normalized Objective Value Change %", hue="Change Type",
+        data=df, palette=color_map, s=100  # Increase dot size
+    )
+    plt.xticks(unique_multipliers)
+    plt.xlabel("Speed Multiplier", fontsize=14)
+    plt.ylabel("(Normalized) Objective Value Change (%)", fontsize=14)
+    plt.title("Normalized Objective Change vs Speed Multiplier", fontsize=16)
+    plt.grid(axis='y', linestyle="--", alpha=0.7)
+    plt.legend(title="Change Type")
+    plt.savefig("Figures/speed_normalized_objective_change_scatter.png", dpi=300,
+                bbox_inches='tight' )
+    plt.show()
+
+
+def compute_normalized_obj_value_change(
+        N=9, M=5, trials=100, lower=0.4, upper=1.6, steps=21, parameter="capacity"
+):
+    """
+    Computes normalized objective value change before infeasibility.
+    - If `parameter="capacity"`, it tests lower multipliers.
+    - If `parameter="demand"`, it tests upper multipliers with fixed demand.
+    """
+
+    # Select correct multipliers based on parameter
+    multipliers = np.linspace(1.0, lower, steps) if parameter == "capacity" else np.linspace(1.0, upper, steps)
+    results = []
+    always_feasible = 0
+    infeasible_base = 0
+
+    for seed in range(trials):
+        # Run base case
+        base_result = run(N=N, M=M, speed_multiplier=1.0, capacity_multiplier=1.0, random_fleet=True, seed=seed)
+
+        if base_result is None:
+            infeasible_base += 1
+            continue  # Skip infeasible trials
+
+        base_obj = base_result["objective_value"]
+        base_norm_obj = base_result["normalized_objective_value"]
+        base_demand = base_result["demand_list"]  # Fixed demand for demand sensitivity
         base_edges = base_result["solution_x"]
-        fleet = tuple(base_result["fleet"])
 
+        fixed_fleet = base_result["fleet"]
+        fixed_demand = base_result["demand_list"]
+        fixed_nodes = base_result["nodes"]
+
+        found_feasible = False
         # Iterate over multipliers
-        for change_type, multipliers in zip(["Decrease", "Increase"], [lower_multipliers, upper_multipliers]):
-            for multiplier in multipliers:
-                result = run(
-                    N=N, M=M,
-                    speed_multiplier=multiplier if parameter == "speed" else 1.0,
-                    capacity_multiplier=multiplier if parameter == "capacity" else 1.0,
-                    random_fleet=True, seed=seed
-                )
+        for multiplier in multipliers:
+            if parameter == "capacity":
+                result = run(N=N, M=M, capacity_multiplier=multiplier, random_fleet=False,
+                             fleet_composition=fixed_fleet, fixed_demand=fixed_demand, fixed_nodes=fixed_nodes,
+                                seed=seed)
+            elif parameter == "demand":
+                increased_demand = [int(d * multiplier) for d in fixed_demand]
+                result = run(N=N, M=M, capacity_multiplier=1.0, random_fleet=False,
+                             fleet_composition=fixed_fleet, fixed_demand=increased_demand, fixed_nodes=fixed_nodes,
+                                seed=seed)
+            else:
+                raise ValueError("Parameter must be 'capacity' or 'demand'.")
 
-                if result["objective_value"] and result["solution_x"] != base_edges:
-                    obj_change_abs = result["objective_value"] - base_obj
-                    obj_change_pct = (obj_change_abs / base_obj) * 100
-                    dist_change_abs = result["total_distance"] - base_dist
-                    dist_change_pct = (dist_change_abs / base_dist) * 100
+            if result["solution_x"] is None:
+                found_infeasible = True
+                break  # Stop when infeasible
 
-                    results.append({
-                        "Trial": seed,
-                        "Multiplier": multiplier,
-                        "Change Type": change_type,
-                        "Objective Value Change %": obj_change_pct,
-                        "Objective Value Change (Abs)": obj_change_abs,
-                        "Total Distance Change %": dist_change_pct,
-                        "Total Distance Change (Abs)": dist_change_abs,
-                        "Fleet Composition": fleet
-                    })
-                    break  # Stop at first detected change
+            # Compute changes
+            obj_change = result["objective_value"] - base_obj
+            norm_obj_change = result["normalized_objective_value"] - base_norm_obj
+            obj_change_pct = (obj_change / base_obj) * 100
+            norm_obj_change_pct = (norm_obj_change / base_norm_obj) * 100
 
+            # Store results
+            results.append({
+                "Multiplier": multiplier,
+                "Trial": seed,
+                "Objective Change": obj_change,
+                "Normalized Objective Change": norm_obj_change,
+                "Objective Change (%)": obj_change_pct,
+                "Normalized Objective Change (%)": norm_obj_change_pct,
+                "Fleet Composition": result["fleet"],
+            })
+
+    if not found_infeasible:
+        always_feasible += 1
+
+    pd.DataFrame(results).to_csv(f"sensitivity_characteristics_{parameter}.csv", index=False)
     return pd.DataFrame(results)
 
+def plot_normalized_obj_value(df, trials, parameter="capacity"):
+    """
+    Plots the normalized objective value change before infeasibility for capacity or demand.
+    Includes:
+    - Line Plot with Mean and Standard Deviation
+    - Scatter Plot
+    - Box Plot
+    """
 
-def plot_sensitivity_boxplots(df, parameter="speed"):
-    """
-    Generates boxplots for objective value and distance changes due to speed or capacity sensitivity.
-    """
+
+    # Get unique multipliers, sorted for consistent x-axis
+    unique_multipliers = np.sort(df["Multiplier"].unique())
+
+    if parameter == "capacity":
+        min = np.min(unique_multipliers)
+        max = 1
+        xtick_fontsize = 10
+        rotation = 45
+        color = "tab:blue"
+    elif parameter == "demand":
+        min = 1
+        max = np.max(unique_multipliers)
+        xtick_fontsize = 8
+        rotation = 60
+        color = "tab:orange"
+
+    ### Line Plot with Mean and Standard Deviation ###
     plt.figure(figsize=(8, 6))
-    sns.boxplot(x="Multiplier", y="Objective Value Change %", hue="Change Type", data=df,
-                palette={"Decrease": "blue", "Increase": "red"})
-    plt.xlabel(f"{parameter.capitalize()} Multiplier")
-    plt.ylabel("Objective Value Change (%)")
-    plt.title(f"Objective Value Change vs {parameter.capitalize()} Multiplier")
-    plt.grid(axis='y', linestyle="--", alpha=0.7)
-    plt.savefig(f"Figures/{parameter}_objective_change_boxplot.png", dpi=300)
+    multipliers = df.groupby("Multiplier")["Normalized Objective Change"]
+    means = multipliers.mean()
+    stds = multipliers.std()
+
+    plt.plot(means.index, means, marker='o', label="Mean Change", color = color)
+    plt.fill_between(means.index, means - stds, means + stds, alpha=0.3, label="±1 Std Dev",color=color)
+
+    plt.xlabel(f"{parameter.capitalize()} Multiplier", fontsize = 14)
+    plt.ylabel("Normalized Objective Value Change (%)", fontsize = 14)
+    plt.title(f"Mean and Spread of Normalized Objective Value Change vs \n"
+              f"{parameter.capitalize()} Multiplier (N={N}, M={M}, trials={trials})", fontsize = 16)
+    plt.xticks(unique_multipliers, rotation=rotation, fontsize=xtick_fontsize)  # Rotate x-ticks
+    plt.xlim(min, max)
+    plt.grid()
+    plt.legend()
+    plt.savefig(f"Figures/characteristics/{parameter}_obj_value_line.png", dpi=300)
     plt.show()
 
+    ### Scatter Plot ###
     plt.figure(figsize=(8, 6))
-    sns.boxplot(x="Multiplier", y="Total Distance Change %", hue="Change Type", data=df,
-                palette={"Decrease": "blue", "Increase": "red"})
-    plt.xlabel(f"{parameter.capitalize()} Multiplier")
-    plt.ylabel("Total Distance Change (%)")
-    plt.title(f"Total Distance Change vs {parameter.capitalize()} Multiplier")
-    plt.grid(axis='y', linestyle="--", alpha=0.7)
-    plt.savefig(f"Figures/{parameter}_distance_change_boxplot.png", dpi=300)
+    plt.scatter(df["Multiplier"], df["Normalized Objective Change"], alpha=0.7, color = color)
+
+    plt.xlabel(f"{parameter.capitalize()} Multiplier", fontsize = 14)
+    plt.ylabel("Normalized Objective Value Change (%)", fontsize =14 )
+    plt.title(f"Scatter of Normalized Objective Value Change vs {parameter.capitalize()}\n"
+              f"{N}, M={M}, trials={trials})", fontsize =16)
+    plt.xticks(unique_multipliers, rotation=rotation, fontsize=xtick_fontsize)  # Rotate x-ticks
+    plt.xlim(min, max)
+    plt.grid()
+    plt.savefig(f"Figures/characteristics/{parameter}_obj_value_scatter.png", dpi=300)
+    plt.show()
+
+    ### Box Plot ###
+    plt.figure(figsize=(8, 6))
+    df.boxplot(column="Normalized Objective Change", by="Multiplier", grid=False)
+
+    plt.xlabel(f"{parameter.capitalize()} Multiplier", fontsize=14)
+    plt.ylabel("Normalized Objective Value Change (%)", fontsize = 14)
+    plt.title(f"Distribution of Normalized Objective Value Change vs {parameter.capitalize()} Multiplier \n"
+              f"(N={N}, M={M}, trials={trials})", fontsize = 16)
+    plt.xticks(rotation=45)  # Rotate x-ticks
+    plt.suptitle("")  # Remove automatic suptitle from pandas boxplot
+    plt.grid()
+    plt.savefig(f"Figures/characteristics/{parameter}_obj_value_boxplot.png", dpi=300)
     plt.show()
 
 
-def plot_sensitivity_scatter(df, parameter="speed"):
-    """
-    Generates scatter plots for objective value and distance changes due to speed or capacity sensitivity.
-    """
-    plt.figure(figsize=(8, 6))
-    sns.scatterplot(x="Multiplier", y="Objective Value Change %", hue="Change Type", data=df,
-                    palette={"Decrease": "blue", "Increase": "red"})
-    plt.xlabel(f"{parameter.capitalize()} Multiplier")
-    plt.ylabel("Objective Value Change (%)")
-    plt.title(f"Objective Value Change vs {parameter.capitalize()} Multiplier")
-    plt.xticks(sorted(df["Multiplier"].unique()))
-    plt.grid(alpha=0.7)
-    plt.savefig(f"Figures/{parameter}_objective_change_scatter.png", dpi=300)
-    plt.show()
+# Example usage
+# df_capacity = compute_normalized_obj_value_change(lower=0.5, steps = 26, trials = 100, parameter="capacity")
+# plot_normalized_obj_value(df_capacity, trials = 100, parameter="capacity")
 
-    plt.figure(figsize=(8, 6))
-    sns.scatterplot(x="Multiplier", y="Total Distance Change %", hue="Change Type", data=df,
-                    palette={"Decrease": "blue", "Increase": "red"})
-    plt.xlabel(f"{parameter.capitalize()} Multiplier")
-    plt.ylabel("Total Distance Change (%)")
-    plt.title(f"Total Distance Change vs {parameter.capitalize()} Multiplier")
-    plt.xticks(sorted(df["Multiplier"].unique()))
-    if parameter == "speed":
-        plt.ylim(-1, 1)
-    plt.grid(alpha=0.7)
-    plt.savefig(f"Figures/{parameter}_distance_change_scatter.png", dpi=300)
-    plt.show()
+df_demand = compute_normalized_obj_value_change(upper = 2, steps = 51, trials = 100, parameter="demand")
+plot_normalized_obj_value(df_demand, trials = 100, parameter="demand")
 
 
-# Compute changes for speed
-df_speed = compute_sensitivity_changes(N=9, M=5, trials=TRIALS, lower=LOWER, upper=UPPER, steps=STEPS,
-                                       parameter="speed")
-df_speed.to_csv("Figures/speed_sensitivity_results.csv", index=False)
-plot_sensitivity_boxplots(df_speed, parameter="speed")
-plot_sensitivity_scatter(df_speed, parameter="speed")
+# df_speed = compute_speed_sensitivity(N=9, M=5, trials=1, lower=0.92, upper=1.08, steps=5)
+# plot_speed_sensitivity(df_speed)
 
-# Compute changes for capacity
-df_capacity = compute_sensitivity_changes(N=9, M=5, trials=TRIALS, lower=LOWER, upper=UPPER, steps=STEPS,
-                                          parameter="capacity")
-df_capacity.to_csv("Figures/capacity_sensitivity_results.csv", index=False)
-plot_sensitivity_boxplots(df_capacity, parameter="capacity")
-plot_sensitivity_scatter(df_capacity, parameter="capacity")
+# # Run Capacity Sensitivity Analysis (Only Lower Multipliers)
+# df_capacity = compute_sensitivity_changes(N=9, M=5, trials=100, lower=0.6, upper=1.0, steps=3, parameter="capacity")
+# plot_capacity_demand_sensitivity(df_capacity, parameter="capacity")
+#
+# # Run Demand Sensitivity Analysis (Only Upper Multipliers)
+# df_demand = compute_sensitivity_changes(N=9, M=5, trials=100, lower=1.0, upper=1.4, steps=3, parameter="demand")
+# plot_capacity_demand_sensitivity(df_demand, parameter="demand")

@@ -17,15 +17,12 @@ depot_locations = [
     (100, 100),
 ]
 
-depot_locations = [(50,50)]
-
 # Define number of seeds to run for variability analysis
-num_seeds = 1
+num_seeds = 20
 
 # Define number of customers N and vehicles M
-M = 3
-# N = 9
-N = 13
+M = 5
+N = 9
 
 # Store results in a DataFrame
 results = []
@@ -33,14 +30,14 @@ results = []
 # Store results in a dictionary for plotting the routes without rerunning the model
 all_results = {}
 
-fleet_compositions = {
-        'Fixed-Wing (Type 1)': [0] * (M),
-        'Quadcopter (Type 2)': [1] * (M),
-        'Cargo Blimp (Type 3)': [2] * (M)
-    }
+# fleet_compositions = {
+#         'Fixed-Wing (Type 1)': [0] * (M),
+#         'Quadcopter (Type 2)': [1] * (M),
+#         'Cargo Blimp (Type 3)': [2] * (M)
+#     }
 for depot_index, depot in enumerate(depot_locations):
     for seed in range(num_seeds):
-        result = run(N=N, M=M, random_fleet= False, fleet_composition= fleet_compositions['Quadcopter (Type 2)'] , seed=seed)
+        result = run(N=N, M=M, random_fleet= True, depot_location = depot, seed=seed)
         all_results[(depot_index, seed)] = result
 
 
@@ -49,18 +46,22 @@ for depot_index, depot in enumerate(depot_locations):
             obj_value = result["objective_value"]
             total_dist = result["total_distance"]
             runtime = result["runtime"]
+            norm_obj_value = obj_value/sum(result["demand_list"])
         else:
             feasibility = "No"
             obj_value = np.nan
             total_dist = np.nan
             runtime = np.nan
+            norm_obj_value = np.nan
 
         results.append({
             "Depot Location Index": depot_index,
+            "Nodes": N,
             "Fleet Size": M,
             "Fleet Composition": str(tuple(result["fleet"])),
             "Seed": seed,
             "Objective Value": obj_value,
+            "Normalized Objective Value": norm_obj_value,
             "Total Distance": total_dist,
             "Runtime": runtime,
             "Feasible": feasibility
@@ -86,12 +87,12 @@ def plot_solution(result, depot_index, seed):
 
     # Plot depot
     plt.scatter(depot[0], depot[1], s=100, c='red', marker='s', label="Depot")
-    plt.annotate('Depot', (depot[0] + 1, depot[1] + 1), fontsize=10, color='red', fontweight='bold')
+    plt.annotate('Depot', (depot[0] + 1, depot[1] + 1), fontsize=12, color='red', fontweight='bold')
 
     # Plot customers
     for i, (x, y) in enumerate(customers):
         plt.scatter(x, y, s=50, c='blue', marker='o')
-        plt.annotate(f"C{i + 1} [{demand_list[i]}kg]", (x + 1, y + 1), fontsize=10, color='black')
+        plt.annotate(f"C{i + 1} [{demand_list[i]}kg]", (x + 1, y + 1), fontsize=12, color='black')
 
     # Track total delivered capacities for each vehicle
     delivered_capacities = {i: 0 for i in range(M)}
@@ -120,28 +121,34 @@ def plot_solution(result, depot_index, seed):
         plt.scatter([], [], color=vehicle_colors[i], label=f"Vehicle {i+1} ({vehicle_type}): {delivered_capacities[i]}/{result['capacity_list'][i]} kg")
 
     plt.grid()
-    plt.xlabel('X Position [km]')
-    plt.ylabel('Y Position [km]')
+    plt.xlabel('X Position [km]', fontsize = 16)
+    plt.ylabel('Y Position [km]', fontsize = 16)
     plt.xlim(-2, MAP_SIZE+2)
     plt.ylim(-2, MAP_SIZE+2)
-    plt.title(f'Optimized Routes for Depot {depot_index}, Seed {seed}')
-    plt.legend()
-
-    # plt.savefig(f"results/solution_plot_depot{depot_index}_seed{seed}.png", dpi = 300)
+    plt.title(f'Optimized Routes for Depot {depot_index}, Seed {seed}', fontsize = 18)
+    plt.xticks(fontsize=14)  # Increase x-axis tick font size
+    plt.yticks(fontsize=14)  # Increase y-axis tick font size
+    if depot_index == 3 or depot_index == 4:
+        plt.legend(fontsize=12, loc = "lower left")
+    else:
+        plt.legend(fontsize=12)
+    plt.savefig(f"Figures/depot/solution_plot_depot{depot_index}_seed{seed}.png", bbox_inches = "tight", dpi = 300)
     plt.show()
 
 def plot_depot_sensitivity_boxplot(results_df):
     plt.figure(figsize=(10, 6))
-    sns.boxplot(x="Depot Location Index", y="Objective Value", data=results_df)
-
-    plt.xlabel("Depot Location")
-    plt.ylabel("Objective Value (person hours)")
-    plt.title("Sensitivity of Objective Value to Depot Location")
+    sns.boxplot(x="Depot Location Index", y="Normalized Objective Value", data=results_df)
+    plt.xlabel("Depot Location", fontsize = 14)
+    plt.ylabel("Total Hours per KG Demand", fontsize = 14)
+    plt.title(f"Sensitivity of Normalized Objective Value to Depot Location \n"
+              f" (N={N}, M={M}, trials={num_seeds})", fontsize = 16)
     plt.grid()
-    plt.savefig("results/boxplot_depot_sensitivity_boxplot.png", dpi = 300)
+    plt.xticks(fontsize=14)  # Increase x-axis tick font size
+    plt.yticks(fontsize=14)
+
+    plt.savefig(f"Figures/depot/boxplot_depot_sensitivity_boxplot_N{N}_M{M}.png", bbox_inches = "tight", dpi = 300)
     plt.show()
 
-# plot_depot_sensitivity_boxplot(results_df)#
 for (depot_index, seed), result in all_results.items():
     if result and result["solution_x"]:
         plot_solution(result, depot_index, seed)

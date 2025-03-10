@@ -53,7 +53,7 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier=1, capacity_mult
 
     demand_list = [0] * (N + 1)
     rem_fleet_capacity = fleet_capacity
-    max_demand = max(2, rem_fleet_capacity // (N - 1) * 7 // 4)
+    max_demand = max(2, rem_fleet_capacity // (N - 1) * 7 // 4);
 
     for i in range(N - 1):
         demand = min(np.random.randint(1, max_demand), rem_fleet_capacity - M - 1)

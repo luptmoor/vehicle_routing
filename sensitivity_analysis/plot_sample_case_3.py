@@ -1,11 +1,3 @@
-"""
-This script visualizes optimized vehicle routes for a vehicle routing problem.
-It includes the capacity of each vehicle and the delivered demand.
-
-
-Date: 4th of February 2025
-"""
-
 
 import numpy as np
 import matplotlib.pyplot as plt

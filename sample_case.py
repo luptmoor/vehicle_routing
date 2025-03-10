@@ -51,8 +51,8 @@ fleet_capacity = sum(capacity_list); # Total capacity of fleet
 # Generate demand list (N+1) (depot counted twice: as start and end)
 demand_list = [0] * (N+1);
 rem_fleet_capacity = fleet_capacity;
-max_demand = rem_fleet_capacity // (N-1) * 7 // 4;
 
+max_demand = rem_fleet_capacity // (N-1) * 7 // 4;
 for i in range(N-1):
     demand = min(np.random.randint(1, max_demand), rem_fleet_capacity-M-1);
     demand_list[i] += demand;
@@ -204,6 +204,9 @@ for i in range(M):
         for k in range(N+1):
             solution[i, j, k] = x[i, j, k].X;
 
+selected_edges = {(i, j, k) for i in range(M) for j in range(N + 1) for k in range(N + 1) if x[i, j, k].X > 0.5}
+
+
 print()
 print()
 print(solution);
@@ -213,6 +216,6 @@ print(sum(solution[i, :, :] for i in range(M)));
 print()
 print('Total time needed:', m.ObjVal, 'person hours.')
 #plt.show(); # only plots scenario, not solution
+print(selected_edges)
 
-
-verify_all_constraints(solution, demand_list, capacity_list)
+# verify_all_constraints(solution, demand_list, capacity_list)
