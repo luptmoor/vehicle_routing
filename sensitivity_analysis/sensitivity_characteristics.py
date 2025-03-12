@@ -13,9 +13,11 @@ N = 9
 # ------------------------ SPEED SENSITIVITY ANALYSIS ------------------------
 
 def run_speed_analysis(N=9, M=5, trials=1, lower=0.4, upper=1.6, speed_steps=30):
-    """Runs speed sensitivity analysis, recording the multipliers where the solution changes."""
+    """
+    Runs speed sensitivity analysis, recording the multipliers where the solution changes.
+    """
     left_changes, right_changes = [], []
-    no_change_lower, no_change_upper = 0, 0  # Counters for trials where no change was observed
+    no_change_lower, no_change_upper = 0, 0
     infeasible_base = 0
 
     for seed in range(trials):
@@ -31,7 +33,8 @@ def run_speed_analysis(N=9, M=5, trials=1, lower=0.4, upper=1.6, speed_steps=30)
         fixed_nodes = base_result["nodes"]
         base_edges = base_result["solution_x"]
 
-        left_changed, right_changed = False, False  # Flags to track if a change occurs
+
+        left_changed, right_changed = False, False
 
         # Test lower multipliers (speed decrease)
         for multiplier in np.linspace(1.0, lower, speed_steps):

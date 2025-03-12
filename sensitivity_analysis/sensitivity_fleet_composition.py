@@ -4,26 +4,30 @@ from itertools import combinations_with_replacement
 
 from sample_case_2 import run
 
-
-# Fleet types (0 = Fixed Wing, 1 = Quadcopter, 2 = Blimp)
-# Generate all unique fleet compositions for a given fleet size M
 def generate_fleet_compositions(M):
+    """
+    Generate all unique fleet compositions for a given fleet size M.
+    """
+
+    # Fleet types (0 = Fixed Wing, 1 = Quadcopter, 2 = Blimp)
     fleet_types = [0, 1, 2]
     return [list(comp) for comp in combinations_with_replacement(fleet_types, M)]
 
 
-# Run multiple trials and store individual results
-def run_trials(N, M, fleet_composition, num_trials=3):
-    trial_results = {}  # Stores raw objective values
-    trial_results_normalized = {}  # Stores normalized objective values
+def run_trials(N, M, fleet_composition, num_trials=1):
+    """
+    Run multiple trials for a given fleet composition and store results.
+    """
+    trial_results = {}
+    trial_results_normalized = {}
     objective_values = []
     normalized_objective_values = []
 
     for seed in range(num_trials):
         result = run(N=N, M=M, fleet_composition=fleet_composition, random_fleet=False, seed=seed)
-        if result and result["objective_value"] is not None:
-            total_demand = result["total_demand"] if "total_demand" in result else 1  # Ensure demand is never zero
-            normalized_value = result["objective_value"] / total_demand  # Normalize
+        if result["objective_value"] is not None:
+            total_demand = result["total_demand"]
+            normalized_value = result["objective_value"] / total_demand
 
             # Store values separately in respective dictionaries
             trial_results[f"Seed {seed}"] = result["objective_value"]
@@ -41,8 +45,10 @@ def run_trials(N, M, fleet_composition, num_trials=3):
     return avg_objective_value, avg_normalized_value, trial_results, trial_results_normalized
 
 
-# Run experiments for each fleet size and composition
-def run_compositions(N, M_list, num_trials=3):
+def run_compositions(N, M_list, num_trials=10):
+    """
+    Run experiments for each fleet size and composition
+    """
     results_objective = []
     results_normalized = []
 
@@ -53,22 +59,24 @@ def run_compositions(N, M_list, num_trials=3):
                 N=N, M=M, fleet_composition=fleet_composition, num_trials=num_trials
             )
 
-            # Create base entry
-            base_entry = {
+            result_entry_objective = {
                 "Fleet Size": M,
                 "Fleet Composition": tuple(fleet_composition),
                 "% Fixed-Wing": round(fleet_composition.count(0) / M * 100, 1),
                 "% Quadcopter": round(fleet_composition.count(1) / M * 100, 1),
-                "% Blimp": round(fleet_composition.count(2) / M * 100, 1)
+                "% Blimp": round(fleet_composition.count(2) / M * 100, 1),
+                "Average Objective Value": avg_objective_value
             }
-
-            # Create separate result entries
-            result_entry_objective = base_entry.copy()
-            result_entry_objective["Average Objective Value"] = avg_objective_value
             result_entry_objective.update(trial_results)
 
-            result_entry_normalized = base_entry.copy()
-            result_entry_normalized["Average Normalized Objective Value"] = avg_normalized_value
+            result_entry_normalized = {
+                "Fleet Size": M,
+                "Fleet Composition": tuple(fleet_composition),
+                "% Fixed-Wing": round(fleet_composition.count(0) / M * 100, 1),
+                "% Quadcopter": round(fleet_composition.count(1) / M * 100, 1),
+                "% Blimp": round(fleet_composition.count(2) / M * 100, 1),
+                "Average Normalized Objective Value": avg_normalized_value
+            }
             result_entry_normalized.update(trial_results_normalized)
 
             results_objective.append(result_entry_objective)
@@ -79,14 +87,14 @@ def run_compositions(N, M_list, num_trials=3):
     df_results_normalized = pd.DataFrame(results_normalized)
 
     # Save to CSV
-    df_results_objective.to_csv("fleet_composition_results_objective.csv", index=False)
-    df_results_normalized.to_csv("fleet_composition_results_normalized.csv", index=False)
+    df_results_objective.to_csv(f"results/fleet_composition/fleet_composition_results_objective_N{N}.csv", index=False)
+    df_results_normalized.to_csv(f"results/fleet_composition/fleet_composition_results_normalized_N{N}.csv", index=False)
 
-    # Filter out NaN rows for further analysis
-    df_filtered_objective = df_results_objective.dropna(subset=["Average Objective Value"])
-    df_filtered_normalized = df_results_normalized.dropna(subset=["Average Normalized Objective Value"])
+    # Filtering out nan, not required since computing mean works with nan values
+    # df_filtered_objective = df_results_objective.dropna(subset=["Average Objective Value"])
+    # df_filtered_normalized = df_results_normalized.dropna(subset=["Average Normalized Objective Value"])
 
-    return df_results_objective, df_results_normalized, df_filtered_objective, df_filtered_normalized
+    return df_results_objective, df_results_normalized
 
 
 # Define fleet size range and trials
@@ -94,14 +102,4 @@ M_list = range(2, 8)
 N = 9
 num_trials = 10
 
-df_results_objective, df_results_normalized, df_filtered_objective, df_filtered_normalized = run_compositions(N,
-    M_list, num_trials
-)
-#
-# # Print to confirm the structure
-# print("Objective Value DataFrame:")
-# print(df_results_objective.head())
-#
-# print("\nNormalized Objective Value DataFrame:")
-# print(df_results_normalized.head())
-
+df_results_objective, df_results_normalized = run_compositions(N, M_list, num_trials)

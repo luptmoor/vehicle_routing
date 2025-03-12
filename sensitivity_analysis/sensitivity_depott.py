@@ -17,8 +17,8 @@ depot_locations = [
     (100, 100),
 ]
 
-# Define number of seeds to run for variability analysis
-num_seeds = 20
+# Number of trials
+num_trials = 20
 
 # Define number of customers N and vehicles M
 M = 5
@@ -35,13 +35,14 @@ all_results = {}
 #         'Quadcopter (Type 2)': [1] * (M),
 #         'Cargo Blimp (Type 3)': [2] * (M)
 #     }
+
 for depot_index, depot in enumerate(depot_locations):
-    for seed in range(num_seeds):
+    for seed in range(num_trials):
         result = run(N=N, M=M, random_fleet= True, depot_location = depot, seed=seed)
         all_results[(depot_index, seed)] = result
 
-
-        if result and result["objective_value"] is not None:
+        # If feasible extract results
+        if result["objective_value"] is not None:
             feasibility = "Yes"
             obj_value = result["objective_value"]
             total_dist = result["total_distance"]
@@ -68,7 +69,6 @@ for depot_index, depot in enumerate(depot_locations):
         })
 
 
-
 # Plot function for vehicle routes
 def plot_solution(result, depot_index, seed):
     plt.figure(figsize=(10, 8))
@@ -81,7 +81,7 @@ def plot_solution(result, depot_index, seed):
 
     vehicle_types = {0: "Fixed Wing", 1: "Quadcopter", 2: "Cargo Blimp"}
 
-    # Generate colors dynamically for vehicles
+    # Generate colors for vehicles
     cmap = plt.colormaps.get_cmap('tab10')
     vehicle_colors = [cmap(i % M) for i in range(M)]
 
@@ -118,7 +118,8 @@ def plot_solution(result, depot_index, seed):
     # Add legend entries for each vehicle with its type and delivered capacity
     for i in range(M):
         vehicle_type = vehicle_types[fleet[i]]
-        plt.scatter([], [], color=vehicle_colors[i], label=f"Vehicle {i+1} ({vehicle_type}): {delivered_capacities[i]}/{result['capacity_list'][i]} kg")
+        plt.scatter([], [], color=vehicle_colors[i],
+                    label=f"Vehicle {i+1} ({vehicle_type}): {delivered_capacities[i]}/{result['capacity_list'][i]} kg")
 
     plt.grid()
     plt.xlabel('X Position [km]', fontsize = 16)
@@ -135,13 +136,13 @@ def plot_solution(result, depot_index, seed):
     plt.savefig(f"Figures/depot/solution_plot_depot{depot_index}_seed{seed}.png", bbox_inches = "tight", dpi = 300)
     plt.show()
 
-def plot_depot_sensitivity_boxplot(results_df):
+def plot_depot_sensitivity_boxplot(df_results):
     plt.figure(figsize=(10, 6))
-    sns.boxplot(x="Depot Location Index", y="Normalized Objective Value", data=results_df)
+    sns.boxplot(x="Depot Location Index", y="Normalized Objective Value", data=df_results)
     plt.xlabel("Depot Location", fontsize = 14)
     plt.ylabel("Total Hours per KG Demand", fontsize = 14)
     plt.title(f"Sensitivity of Normalized Objective Value to Depot Location \n"
-              f" (N={N}, M={M}, trials={num_seeds})", fontsize = 16)
+              f" (N={N}, M={M}, trials={num_trials})", fontsize = 16)
     plt.grid()
     plt.xticks(fontsize=14)  # Increase x-axis tick font size
     plt.yticks(fontsize=14)
@@ -149,12 +150,12 @@ def plot_depot_sensitivity_boxplot(results_df):
     plt.savefig(f"Figures/depot/boxplot_depot_sensitivity_boxplot_N{N}_M{M}.png", bbox_inches = "tight", dpi = 300)
     plt.show()
 
-for (depot_index, seed), result in all_results.items():
-    if result and result["solution_x"]:
-        plot_solution(result, depot_index, seed)
+# for (depot_index, seed), result in all_results.items():
+#     if result and result["solution_x"]:
+#         plot_solution(result, depot_index, seed)
 
 # Convert results to a DataFrame and save
 df_results = pd.DataFrame(results)
-# df_results.to_csv("depot_sensitivity_results.csv", index=False)
+df_results.to_csv("results/depot/depot_sensitivity_results.csv", index=False)
 
 plot_depot_sensitivity_boxplot(df_results)

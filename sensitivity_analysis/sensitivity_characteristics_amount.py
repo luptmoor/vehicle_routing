@@ -147,7 +147,7 @@ def plot_speed_sensitivity(df):
     plt.xticks(unique_multipliers)
     plt.xlabel("Speed Multiplier", fontsize=14)
     plt.ylabel("(Normalized) Objective Value Change (%)", fontsize=14)
-    plt.title("Normalized Objective Change vs Speed Multiplier", fontsize=16)
+    plt.title(f"Normalized Objective Change vs Speed Multiplier (N={N}, M={M})", fontsize=16)
     plt.grid(axis='y', linestyle="--", alpha=0.7)
     plt.legend(title="Change Type")
     plt.savefig("Figures/speed_normalized_objective_change_scatter.png", dpi=300,
@@ -308,12 +308,12 @@ def plot_normalized_obj_value(df, trials, parameter="capacity"):
 # df_capacity = compute_normalized_obj_value_change(lower=0.5, steps = 26, trials = 100, parameter="capacity")
 # plot_normalized_obj_value(df_capacity, trials = 100, parameter="capacity")
 
-df_demand = compute_normalized_obj_value_change(upper = 2, steps = 51, trials = 100, parameter="demand")
-plot_normalized_obj_value(df_demand, trials = 100, parameter="demand")
+# df_demand = compute_normalized_obj_value_change(upper = 2, steps = 51, trials = 100, parameter="demand")
+# plot_normalized_obj_value(df_demand, trials = 100, parameter="demand")
 
 
-# df_speed = compute_speed_sensitivity(N=9, M=5, trials=1, lower=0.92, upper=1.08, steps=5)
-# plot_speed_sensitivity(df_speed)
+df_speed = compute_speed_sensitivity(N=9, M=5, trials=1, lower=0.92, upper=1.08, steps=5)
+plot_speed_sensitivity(df_speed)
 
 # # Run Capacity Sensitivity Analysis (Only Lower Multipliers)
 # df_capacity = compute_sensitivity_changes(N=9, M=5, trials=100, lower=0.6, upper=1.0, steps=3, parameter="capacity")
