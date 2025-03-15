@@ -162,7 +162,7 @@ def plot_speed_analysis(N=9, M=5, speed_steps=30, lower=0.4, upper=1.6, trials=8
 
     ax.set_axisbelow(True)
     ax.legend()
-    plt.savefig("figures/characteristics/distribution_speed.png", dpi = 300,
+    plt.savefig(f"figures/characteristics/distribution_speed_N{N}_M{M}.png", dpi = 300,
                 bbox_inches='tight' )
     plt.show()
 
@@ -250,7 +250,7 @@ def plot_capacity_analysis(N=9, M=5, capacity_steps=30, lower=0.4, trials=8):
     ax.set_xlim(lower, 1)
     ax.legend()
 
-    plt.savefig("figures/characteristics/distribution_capacity.png", dpi=300,
+    plt.savefig(f"figures/characteristics/distribution_capacity_N{N}_M{M}.png", dpi=300,
                 bbox_inches='tight' )
     plt.show()
 
@@ -286,7 +286,7 @@ def run_demand_infeasibility_analysis(N=9, M=5, trials=8, upper=2.0, demand_step
             if multiplier > 1.0:
                 # Increase demand while keeping node locations, fleet composition
                 # and demand the same as the base case
-                increased_demand = [int(d * multiplier) for d in fixed_demand]
+                increased_demand = [d * multiplier for d in fixed_demand]
                 result = run(N, M, capacity_multiplier=1.0, random_fleet=False,
                              fleet_composition=fixed_fleet, seed=seed,
                              fixed_demand=increased_demand, fixed_nodes=fixed_nodes)
@@ -342,13 +342,16 @@ def plot_demand_infeasibility_analysis(N=9, M=5, demand_steps=30, upper=2.0, tri
     ax.grid(axis='y', linestyle='--', linewidth=0.5, alpha=0.5)
     ax.set_xlim(1, upper)
     ax.legend()
-    plt.savefig("figures/characteristics/distribution_demand.png", dpi=300,
+    plt.savefig(f"figures/characteristics/distribution_demand_N{N}_M{M}.png", dpi=300,
                 bbox_inches='tight' )
     plt.show()
 
 
-plot_speed_analysis(N=9, M=5, lower=0.6, upper=1.4, speed_steps=21, trials=100)
-
-plot_capacity_analysis(N=9, M=5, lower=0.5, capacity_steps=26, trials=100)
-plot_demand_infeasibility_analysis(N=9, M=5, upper=2, demand_steps=51, trials=100)
+# plot_speed_analysis(N=9, M=5, lower=0.6, upper=1.4, speed_steps=21, trials=100)
+N_list = [9, 10 , 11]
+M_list = [3, 4, 5]
+for N in N_list:
+    for M in M_list:
+        plot_capacity_analysis(N=N, M=M, lower=0.5, capacity_steps=26, trials=100)
+        plot_demand_infeasibility_analysis(N=N, M=M, upper=2, demand_steps=51, trials=100)
 

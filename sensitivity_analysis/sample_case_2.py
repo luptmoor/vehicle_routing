@@ -71,17 +71,6 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
         demand_list = fixed_demand
 
 
-    print(demand_list)
-    # FIXED_TOTAL_DEMAND = 500  # Adjust this based on scenario
-    #
-    # # Distribute demand randomly among customers
-    # demand_list = np.random.dirichlet(np.ones(N - 1)) * FIXED_TOTAL_DEMAND
-    # demand_list = np.round(demand_list).astype(int).tolist()  # Convert to integer
-    # demand_list.append(0)
-    #
-    # demand_list = [int(x) for x in demand_list]
-
-
     # Generate distance matrix (N+1 x N+1)
     distance_matrix = np.zeros((N + 1, N + 1))
     for i, j in [(i, j) for i in range(N + 1) for j in range(N + 1)]:
@@ -141,11 +130,7 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
 
 
     m.optimize()
-    print("distance matrix")
-    print(distance_matrix)
-    print("time matrix")
-    print(traveltime_matrix)
-    print(velocity_list)
+
 
     if m.status == GRB.OPTIMAL:
         total_distance = sum(
@@ -186,6 +171,7 @@ def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_mu
             "velocity_list": velocity_list
         }
 
+print(run())
 
 
 

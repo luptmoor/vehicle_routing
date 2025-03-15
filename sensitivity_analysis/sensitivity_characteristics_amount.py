@@ -8,7 +8,7 @@ M = 5
 N = 9
 TRIALS = 100
 
-
+# OLD VERSION
 
 def compute_speed_sensitivity(N=9, M=5, trials=100, lower=0.94, upper=1.06, steps=4):
     """
@@ -312,8 +312,8 @@ def plot_normalized_obj_value(df, trials, parameter="capacity"):
 # plot_normalized_obj_value(df_demand, trials = 100, parameter="demand")
 
 
-df_speed = compute_speed_sensitivity(N=9, M=5, trials=1, lower=0.92, upper=1.08, steps=5)
-plot_speed_sensitivity(df_speed)
+# df_speed = compute_speed_sensitivity(N=9, M=5, trials=1, lower=0.92, upper=1.08, steps=5)
+# plot_speed_sensitivity(df_speed)
 
 # # Run Capacity Sensitivity Analysis (Only Lower Multipliers)
 # df_capacity = compute_sensitivity_changes(N=9, M=5, trials=100, lower=0.6, upper=1.0, steps=3, parameter="capacity")

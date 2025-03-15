@@ -108,7 +108,7 @@ def compute_speed_sensitivity(N=9, M=5, trials=100, lower=0.94, upper=1.06, step
             })
 
     df_results = pd.DataFrame(results)
-    df_results.to_csv("speed_sensitivity_results.csv", index=False)
+    df_results.to_csv("results/characteristics/speed_sensitivity_results.csv", index=False)
     return df_results
 
 
@@ -148,7 +148,7 @@ def plot_speed_sensitivity(df):
     plt.title(f"Normalized Objective Change vs Speed Multiplier (N={N}, M={M})", fontsize=16)
     plt.grid(axis='y', linestyle="--", alpha=0.7)
     plt.legend(title="Change Type")
-    plt.savefig("Figures/speed_normalized_objective_change_scatter.png", dpi=300,
+    plt.savefig(f"figures/characteristics/speed_normalized_objective_change_scatter_N{N}_M{M}.png", dpi=300,
                 bbox_inches='tight' )
     plt.show()
 
@@ -193,7 +193,7 @@ def compute_normalized_obj_value_change(
                              fleet_composition=fixed_fleet, fixed_demand=fixed_demand, fixed_nodes=fixed_nodes,
                                 seed=seed)
             elif parameter == "demand":
-                increased_demand = [int(d * multiplier) for d in fixed_demand]
+                increased_demand = [d * multiplier for d in fixed_demand]
                 result = run(N=N, M=M, capacity_multiplier=1.0, random_fleet=False,
                              fleet_composition=fixed_fleet, fixed_demand=increased_demand, fixed_nodes=fixed_nodes,
                                 seed=seed)
@@ -216,6 +216,8 @@ def compute_normalized_obj_value_change(
                 "Objective Change (%)": obj_change_pct,
                 "Normalized Objective Change (%)": norm_obj_change_pct,
                 "Fleet Composition": result["fleet"],
+                "Base Route": base_edges,
+                "New Route": result["solution_x"],
             })
 
     if not found_infeasible:
@@ -251,7 +253,7 @@ def plot_normalized_obj_value(df, trials, parameter="capacity"):
 
     ### Line Plot with Mean and Standard Deviation ###
     plt.figure(figsize=(8, 6))
-    multipliers = df.groupby("Multiplier")["Normalized Objective Change"]
+    multipliers = df.groupby("Multiplier")["Normalized Objective Change (%)"]
     means = multipliers.mean()
     stds = multipliers.std()
 
@@ -264,28 +266,29 @@ def plot_normalized_obj_value(df, trials, parameter="capacity"):
               f"{parameter.capitalize()} Multiplier (N={N}, M={M}, trials={trials})", fontsize = 16)
     plt.xticks(unique_multipliers, rotation=rotation, fontsize=xtick_fontsize)  # Rotate x-ticks
     plt.xlim(min, max)
-    plt.grid()
+    plt.grid(alpha = 0.5)
     plt.legend()
-    plt.savefig(f"figures/characteristics/{parameter}_obj_value_line.png", dpi=300)
+    plt.savefig(f"figures/characteristics/{parameter}_obj_value_line_N{N}_M{M}.png", dpi=300)
     plt.show()
 
     ### Scatter Plot ###
     plt.figure(figsize=(8, 6))
-    plt.scatter(df["Multiplier"], df["Normalized Objective Change"], alpha=0.7, color = color)
+    plt.scatter(df["Multiplier"], df["Normalized Objective Change (%)"], alpha=0.7, color = color,
+                zorder = 0)
 
     plt.xlabel(f"{parameter.capitalize()} Multiplier", fontsize = 14)
-    plt.ylabel("Normalized Objective Value Change (%)", fontsize =14 )
+    plt.ylabel("Normalized Objective Change (%)", fontsize =14 )
     plt.title(f"Scatter of Normalized Objective Value Change vs {parameter.capitalize()}\n"
               f"{N}, M={M}, trials={trials})", fontsize =16)
     plt.xticks(unique_multipliers, rotation=rotation, fontsize=xtick_fontsize)  # Rotate x-ticks
     plt.xlim(min, max)
-    plt.grid()
-    plt.savefig(f"figures/characteristics/{parameter}_obj_value_scatter.png", dpi=300)
+    plt.grid(alpha = 0.5, zorder = 1)
+    plt.savefig(f"figures/characteristics/{parameter}_obj_value_scatter_N{N}_M{M}.png", dpi=300)
     plt.show()
 
     ### Box Plot ###
     plt.figure(figsize=(8, 6))
-    df.boxplot(column="Normalized Objective Change", by="Multiplier", grid=False)
+    df.boxplot(column="Normalized Objective Change (%)", by="Multiplier", grid=False, zorder = 0)
 
     plt.xlabel(f"{parameter.capitalize()} Multiplier", fontsize=14)
     plt.ylabel("Normalized Objective Value Change (%)", fontsize = 14)
@@ -293,18 +296,18 @@ def plot_normalized_obj_value(df, trials, parameter="capacity"):
               f"(N={N}, M={M}, trials={trials})", fontsize = 16)
     plt.xticks(rotation=45)
     plt.suptitle("")
-    plt.grid()
-    plt.savefig(f"figures/characteristics/{parameter}_obj_value_boxplot.png", dpi=300)
+    plt.grid(zorder = 1)
+    plt.savefig(f"figures/characteristics/{parameter}_obj_value_boxplot_N{N}_M{M}.png", dpi=300)
     plt.show()
 
 
 df_capacity = compute_normalized_obj_value_change(lower=0.5, steps = 26, trials = 100, parameter="capacity")
 plot_normalized_obj_value(df_capacity, trials = 100, parameter="capacity")
 
-df_demand = compute_normalized_obj_value_change(upper = 2, steps = 51, trials = 100, parameter="demand")
+df_demand = compute_normalized_obj_value_change(N = 9, M = 5, upper = 2, steps = 51, trials = 100, parameter="demand")
 plot_normalized_obj_value(df_demand, trials = 100, parameter="demand")
 
-df_speed = compute_speed_sensitivity(N=9, M=5, trials=100, lower=0.92, upper=1.08, steps=5)
-plot_speed_sensitivity(df_speed)
+# df_speed = compute_speed_sensitivity(N=9, M=5, trials=100, lower=0.92, upper=1.08, steps=5)
+# plot_speed_sensitivity(df_speed)
 
 
