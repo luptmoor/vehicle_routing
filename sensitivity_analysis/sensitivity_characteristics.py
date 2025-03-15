@@ -9,6 +9,7 @@ from sample_case_2 import run
 M = 5
 N = 9
 
+# OLD VERSION
 
 # ------------------------ SPEED SENSITIVITY ANALYSIS ------------------------
 
@@ -74,7 +75,6 @@ def plot_speed_analysis(N=9, M=5, speed_steps=30, lower=0.4, upper=1.6, trials=8
     """Plots the distribution of speed multipliers where the optimal solution changes."""
     left_counts, right_counts = run_speed_analysis(N, M, trials, lower, upper, speed_steps)
 
-    # Ensure we include **all possible tested multipliers** in the x-axis
     left_multipliers = np.round(np.linspace(1.0, lower, speed_steps), decimals=4)
     right_multipliers = np.round(np.linspace(1.0, upper, speed_steps), decimals=4)
     tested_multipliers = sorted(set(left_multipliers).union(set(right_multipliers)))
@@ -289,7 +289,7 @@ def plot_demand_infeasibility_analysis(N=9, M=5, demand_steps=51, upper=2.0, tri
 
 # plot_speed_analysis(N=9, M=5, lower=0.6, upper=1.4, speed_steps=21, trials=100)
 
-plot_capacity_analysis(N=9, M=5, lower=0.5, capacity_steps=26, trials=100)
+# plot_capacity_analysis(N=9, M=5, lower=0.5, capacity_steps=26, trials=100)
 
 # plot_demand_infeasibility_analysis(N=9, M=5, upper=2, demand_steps=51, trials=100)
 
