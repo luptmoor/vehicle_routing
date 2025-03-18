@@ -5,7 +5,7 @@ import pandas as pd
 
 def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier = 1, capacity_multiplier = 1, random_fleet=True, fleet_composition=None, fixed_demand = None, fixed_nodes = None, seed = 2):
     """
-    Function to run the model for speed, capacity, fleet size and number of nodes sensitivity
+    Function to run the model for speed, capacity, fleet size and number of nodes sensitivity.
     """
 
     np.random.seed(seed)

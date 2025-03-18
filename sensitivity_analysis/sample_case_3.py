@@ -14,7 +14,7 @@ import os
 def run(N=5, M=2, MAP_SIZE=100, GRID_STEPS=10, speed_multiplier=1, capacity_multiplier=1,
         random_fleet=True, fleet_composition=None, seed=2, depot_location=(50,50)):
     """
-    Function to run the model depot location sensitivity
+    Function to run the model depot location sensitivity.
     """
 
     np.random.seed(seed)

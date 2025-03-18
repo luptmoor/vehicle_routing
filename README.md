@@ -18,10 +18,30 @@ Visualizations are generated using `plot_results.py`, which plots the vehicle ro
 
 ```
 📁 vehicle_routing/
-│-- sample_case.py               # Main VRP problem formulation and solution verification
-│-- verification_functions.py     # Constraint validation functions
-│-- plot_results.py               # Visualization of routes
-│-- README.md                     # Project documentation
+│-- 📂 results/                      
+│-- 📂 sensitivity_analysis/         # Contains sensitivity analysis scripts
+│   │-- 📂 figures/                  # Stores generated sensitivity figures
+│   │-- 📂 results/                  # Results from sensitivity analysis
+│   │-- model_performance.py         # Evaluates model performance
+│   │-- plot_sensitivity_fleet_composition.py  # Plots fleet composition sensitivity
+│   │-- route_equal.py               # Manual route comparison 
+│   │-- route_plot.py                # Manual route plot
+│   │-- sample_case_2.py             # Model as a function for sensitivity analysis
+│   │-- sample_case_3.py             # Model as a function for depot sensitivity analysis
+│   │-- sensitivity_characteristics.py         
+│   │-- sensitivity_characteristics_amount.py  
+│   │-- sensitivity_characteristics_amount_v2.py    # Sensitivity of normalized objective value for speed, capacity and demand
+│   │-- sensitivity_characteristics_v2.py           # Sensitivity for solution change for speed, infeasibility for capacity and demand
+│   │-- sensitivity_depot.py          # Depot sensitivity analysis
+│   │-- sensitivity_fleet_composition.py  # Fleet composition sensitivity
+│   │-- sensitivity_fleet_size.py     # Fleet size sensitivity
+│   │-- sensitivity_nodes.py          # Number of nodes sensitivity analysis
+│-- plot_results.py                   # Visualization of vehicle routes
+│-- README.md                          # Project documentation
+│-- sample_case.py                     # Main VRP problem formulation and verification
+│-- vehicle_routing.lp                  # VRP model definition
+│-- verification_functions.py           # Constraint validation functions
+
 ```
 
 ## 🛠️ VRP Constraint Verification
@@ -36,6 +56,15 @@ To ensure that the computed solution is valid, the following five constraints ar
 
 🔹 If any constraint is violated, an error is raised.
 
+## Sensitivity Analysis 
+The sensitivity analysis evaluates how variations in parameters affect the performance - measured by the normalized objective value - of the Vehicle Routing Problem (VRP).
+Analysis was done for the following parameters:
+- Fleet size M
+- Number of nodes N
+- Fleet composition
+- Drone characteristics: speed and capacity, demand
+- Depot location
+
 ## 📊 Visualization
 
 The `plot_results.py` script plots the optimized routes.
@@ -48,6 +77,7 @@ It displays:
 
 🖥️ Results depend on the input values defined in `sample_case.py`.
 
+## 
 
 ## 📌 Notes
 
