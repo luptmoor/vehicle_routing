@@ -204,8 +204,6 @@ for i in range(M):
         for k in range(N+1):
             solution[i, j, k] = x[i, j, k].X;
 
-selected_edges = {(i, j, k) for i in range(M) for j in range(N + 1) for k in range(N + 1) if x[i, j, k].X > 0.5}
-
 
 print()
 print()
@@ -216,6 +214,5 @@ print(sum(solution[i, :, :] for i in range(M)));
 print()
 print('Total time needed:', m.ObjVal, 'person hours.')
 #plt.show(); # only plots scenario, not solution
-print(selected_edges)
 
 # verify_all_constraints(solution, demand_list, capacity_list)
